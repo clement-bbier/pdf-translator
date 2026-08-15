@@ -1,0 +1,14 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+output/*
+tmp/*
+!output/.gitkeep
+!tmp/.gitkeep
+.claude/settings.local.json
+*.log
+
+# local backup of the pre-release git history (never commit)
+.git.backup/

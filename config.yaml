@@ -1,0 +1,35 @@
+provider: mock          # mock | gateway
+model: gemini-2.5-flash # default selection; must be one of `models` below
+
+# Models offered in the UI select (provider: gateway only). Pick per job to
+# trade cost against quality — lighter models are cheaper and faster, larger
+# ones are more faithful on dense legal wording.
+models:
+  - gemini-2.5-flash-lite
+  - gemini-2.5-flash
+  - gemini-2.5-pro
+  - o3
+  - o4-mini
+  - gpt-5-mini
+  - gpt-5-nano
+  - gpt-5.1
+  - mistral-medium
+  - codestral
+  - claude-sonnet-4-6
+  - claude-sonnet-4-5
+  - claude-haiku-4-5
+
+batch_size: 20
+
+# Translate scanned pages (no extractable text) by sending an image of the page
+# to the model. Requires a multimodal model on the gateway side, and costs far
+# more tokens per page than the text path, so it is off by default. When off,
+# scanned pages are copied as-is and listed on a warning cover page.
+multimodal_enabled: false
+
+max_files: 10
+max_file_mb: 20
+font_min_scale: 0.6
+languages:
+  source: [zh, ja, ko, en, fr]
+  target: [fr, en]
