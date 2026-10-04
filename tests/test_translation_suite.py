@@ -98,6 +98,7 @@ def test_report() -> None:
     check("Cache: disabled" in text, "cache line missing")
     check("Prompt version: v1" in text, "prompt version missing")
     check("± " in text, "mean ± std cells missing")
+    check("no-ops" in text, "RAG no-op note missing")
     check(all(seg_text not in text for seg_text in ["公司", "董事会"]), "segment text leaked")
 
 
@@ -175,7 +176,10 @@ def test_compare() -> None:
 def test_baseline_merge_and_publish() -> None:
     with tempfile.TemporaryDirectory() as tmp, Patched(tmp):
         run.BASELINE_PATH.write_text(json.dumps({"layout": {"x": 1.0}}), encoding="utf-8")
-        code, _ = _run_main(["--suite", "translation", "--limit", "2", "--update-baseline"])
+        code, out = _run_main(["--suite", "translation", "--limit", "2", "--update-baseline"])
+        check(code == 2 and "--limit" in out, "limit with update-baseline not refused")
+        check(not run.BASELINE_PATH.read_text(encoding="utf-8").count("translation"), "written")
+        code, _ = _run_main(["--suite", "translation", "--update-baseline"])
         check(code == 0, f"update-baseline returned {code}")
         merged = json.loads(run.BASELINE_PATH.read_text(encoding="utf-8"))
         check(merged.get("layout") == {"x": 1.0}, "layout section lost")

@@ -7,14 +7,14 @@
 - Runs: 3
 - Cache: disabled
 - Failed segment calls: 0
-- Date (UTC): 2026-10-04T20:01:45Z
+- Date (UTC): 2026-10-04T20:24:26Z
 
 **Fake model: these numbers measure the pipeline plumbing, not translation quality.**
 
 ## Notes
 
 - llm settings read from config with built-in defaults (app.config.llm_settings not available: llm-foundation-t2 not merged)
-- PromptBuilder not available (llm-foundation-t2 not merged): no context providers
+- PromptBuilder not available (llm-foundation-t2 not merged): no context providers; rag.glossary / rag.translation_memory are no-ops, the three configurations are identical
 - no price for fake-model
 - workstream B (verification) not merged: check_pass_rate uses the subset translated, non_empty, numbers_preserved
 
@@ -64,10 +64,10 @@
 
 | Model | no_rag | glossary | glossary_tm |
 | --- | ---: | ---: | ---: |
-| fake-model | 0.260 ± 0.023 | 0.261 ± 0.050 | 0.309 ± 0.048 |
+| fake-model | 0.347 ± 0.152 | 0.232 ± 0.042 | 0.255 ± 0.054 |
 
 ## latency_p95_ms
 
 | Model | no_rag | glossary | glossary_tm |
 | --- | ---: | ---: | ---: |
-| fake-model | 0.590 ± 0.079 | 0.742 ± 0.395 | 0.948 ± 0.359 |
+| fake-model | 1.060 ± 0.875 | 0.353 ± 0.045 | 0.494 ± 0.202 |

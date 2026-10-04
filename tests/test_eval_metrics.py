@@ -50,6 +50,12 @@ def test_chrf() -> None:
     # With P == R, F = P, so chrF = 100 * 7/18 = 38.8889.
     value = metrics.chrf("abc", "abd")
     check(abs(value - 38.8889) < 5e-5, f"chrf hand-computed: {value}")
+    # hyp "ab", ref "abc" (P != R, beta = 2 weighs recall): n=1: 2 matches,
+    # P=2/2, R=2/3; n=2: {ab} vs {ab,bc}: P=1/1, R=1/2; n>=3: hyp has none.
+    # P = 1, R = (2/3 + 1/2)/2 = 7/12; F = 5*P*R / (4*P + R) = (35/12)/(55/12) = 7/11
+    # chrF = 63.6364 (a plain F1 would give 73.6842).
+    value = metrics.chrf("ab", "abc")
+    check(abs(value - 63.6364) < 5e-5, f"chrf beta case: {value}")
 
 
 def test_similarity() -> None:

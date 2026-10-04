@@ -67,6 +67,9 @@ FAKE_WARNING = (
 )
 
 
+DEFAULT_TM_PATH = "data/tm/seed_zh_en.jsonl"
+
+
 class SuiteUnavailable(RuntimeError):
     """The suite cannot run in this environment (for example a missing API key)."""
 
@@ -124,7 +127,7 @@ def _context_providers(variant_config: dict[str, Any]) -> tuple[list[Any], str |
         if want_tm:
             providers.append(
                 rag_pkg.TranslationMemoryContextProvider(
-                    rag.get("tm_path", "data/tm.jsonl"), top_k=rag.get("tm_top_k", 3)
+                    _resolve(rag.get("tm_path", DEFAULT_TM_PATH)), top_k=rag.get("tm_top_k", 3)
                 )
             )
         return providers, None
@@ -146,7 +149,9 @@ def _build_translator(
         from app.llm.prompts import PromptBuilder  # type: ignore[attr-defined]
     except ImportError:
         notes.append(
-            "PromptBuilder not available (llm-foundation-t2 not merged): no context providers"
+            "PromptBuilder not available (llm-foundation-t2 not merged): no context providers; "
+            "rag.glossary / rag.translation_memory are no-ops, the three configurations "
+            "are identical"
         )
         return (
             LLMTranslator(
@@ -440,7 +445,8 @@ def evaluate(
     settings, note = _llm_settings(config)
     add(note)
     base = _base_provider(provider, settings, provider_factory)
-    segments = load_segments(dataset_path, expected=None)
+    full_default = limit is None and dataset_path == DATASET_PATH
+    segments = load_segments(dataset_path, expected=30 if full_default else None)
     if limit is not None:
         segments = segments[:limit]
     entries = load_glossary(_glossary_path(config))

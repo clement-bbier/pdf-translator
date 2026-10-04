@@ -1,7 +1,7 @@
 """Run the evaluation suites and compare them with the committed baseline.
 
     python -m evaluation.run                    # run, compare, write reports
-    python -m evaluation.run --update-baseline  # human only: accept current numbers
+    python -m evaluation.run --update-baseline  # human only: merge current numbers per suite key
 
 Outputs (gitignored runtime state):
     evaluation/reports/latest.json   machine-readable result + verdict
@@ -125,7 +125,11 @@ def render_markdown(rows: list[dict], verdict: str, generated_at: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the evaluation suites.")
     parser.add_argument("--suite", choices=sorted(SUITES), action="append", help="suites to run")
-    parser.add_argument("--update-baseline", action="store_true", help="overwrite baseline.json")
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="merge the current numbers into baseline.json, per suite key",
+    )
     parser.add_argument(
         "--provider",
         choices=["fake", "anthropic"],
@@ -140,6 +144,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.ERROR)
+
+    if args.limit is not None and args.update_baseline:
+        print("error: --limit cannot be combined with --update-baseline (partial dataset)")
+        return 2
 
     if args.publish_report:
         source = REPORTS_DIR / "translation.md"
