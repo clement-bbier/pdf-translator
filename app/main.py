@@ -203,6 +203,7 @@ def _render_index(config: dict[str, Any]) -> str:
   }}
   #progress-message {{ font-size: 0.85rem; color: #444; margin-top: 6px; }}
   #warnings {{ margin-top: 12px; font-size: 0.85rem; color: #92400e; }}
+  #review {{ margin-top: 12px; font-size: 0.85rem; color: #92400e; }}
   #error-message {{
     display: none;
     margin-top: 16px;
@@ -285,6 +286,7 @@ def _render_index(config: dict[str, Any]) -> str:
     <div id="progress-bar-bg"><div id="progress-bar"></div></div>
     <div id="progress-message"></div>
     <div id="warnings"></div>
+    <div id="review"></div>
   </div>
 
   <div id="download-link"><a href="#" id="download-href">Download result</a></div>
@@ -302,6 +304,7 @@ const progressWrap = document.getElementById('progress-wrap');
 const progressBar = document.getElementById('progress-bar');
 const progressMessage = document.getElementById('progress-message');
 const warningsBox = document.getElementById('warnings');
+const reviewBox = document.getElementById('review');
 const downloadLink = document.getElementById('download-link');
 const downloadHref = document.getElementById('download-href');
 
@@ -444,6 +447,10 @@ async function pollStatus(jobId) {{
       if (data.warnings && data.warnings.length) {{
         warningsBox.textContent = 'Warnings: ' + data.warnings.join('; ');
       }}
+      if (data.review_count > 0) {{
+        reviewBox.textContent = data.review_count
+          + ' segment(s) need human review (see review.json in the download).';
+      }}
       downloadHref.href = '/jobs/' + jobId + '/download';
       downloadLink.style.display = 'block';
     }} else if (data.status === 'error') {{
@@ -461,6 +468,7 @@ form.addEventListener('submit', async e => {{
   hideError();
   downloadLink.style.display = 'none';
   warningsBox.textContent = '';
+  reviewBox.textContent = '';
 
   if (authRequired && !authenticated) {{
     showError("Sign in to the gateway before translating.");
@@ -678,6 +686,7 @@ def get_job_status(job_id: str) -> dict[str, Any]:
         }
         if state.status == "done" and state.result is not None:
             payload["warnings"] = state.result.warnings
+            payload["review_count"] = state.result.review_count
             payload["stats"] = state.result.stats.summary()
         elif state.status == "error":
             payload["error"] = state.error
@@ -709,6 +718,8 @@ def download_job(job_id: str) -> StreamingResponse:
             output_path = Path(file_result.output_path)
             if output_path.is_file():
                 archive.write(output_path, arcname=output_path.name)
+        if result.review_path is not None and Path(result.review_path).is_file():
+            archive.write(result.review_path, arcname="review.json")
     buffer.seek(0)
 
     with _jobs_lock:

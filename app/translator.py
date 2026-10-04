@@ -134,6 +134,16 @@ class JobStats:
     cache_hits: int = 0
     api_calls: int = 0
     estimated_tokens: int = 0
+    # Verification counters, all in segments (see app/verification/policy.py).
+    verified: int = 0
+    retried: int = 0
+    flagged: int = 0
+
+    def record_verification(self, verified: int, retried: int, flagged: int) -> None:
+        """Register the outcome of one verified batch."""
+        self.verified += verified
+        self.retried += retried
+        self.flagged += flagged
 
     def record_blocks(self, texts: list[str]) -> None:
         """Register the total and unique block counts for a batch of texts."""
@@ -152,8 +162,11 @@ class JobStats:
     def summary(self) -> str:
         """One-line human-readable summary."""
         dedup_pct = 100 * (1 - self.unique_blocks / self.total_blocks) if self.total_blocks else 0
-        return (
+        line = (
             f"blocks={self.total_blocks} unique={self.unique_blocks} "
             f"(dedup {dedup_pct:.0f}%) cache_hits={self.cache_hits} "
             f"api_calls={self.api_calls} estimated_tokens={self.estimated_tokens}"
         )
+        if self.verified or self.flagged:
+            line += f" verified={self.verified} retried={self.retried} flagged={self.flagged}"
+        return line

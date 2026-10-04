@@ -266,6 +266,52 @@ languages:
 `provider` to `gateway` to use the real translation backend (requires `.env`
 to be configured as described above).
 
+## Verification and review
+
+LLM-backed translators (not `mock`) have each batch answer checked by
+deterministic code in `app/verification/` (no second model; rationale in
+[docs/decisions/0002](docs/decisions/0002-deterministic-verification-retry-then-flag.md)):
+
+| Check | Fails when |
+| --- | --- |
+| `json_valid` | the answer is not a JSON object |
+| `segment_count` | a segment is missing from the answer |
+| `glossary_terms` | a required glossary term is absent (only when a context provider supplies terms) |
+| `numbers` | a number or currency of the source is not found in the translation |
+| `dates` | a date of the source is not found in the translation |
+
+**Policy.** A failing batch is re-sent once with the findings as corrections
+(`prompts/v1/retry_corrections.md`). Per segment the best attempt is kept. A
+segment that still fails is *flagged*: it stays in the PDF as translated, is
+listed in `review.json`, and is never cached. If no attempt is valid JSON the
+batch fails as usual (job warning, source text kept).
+
+```yaml
+verification: {enabled: true, max_retries: 1}   # max_retries: 0 to 3
+```
+
+`enabled: false` turns checks off. Unknown keys or out-of-range values are
+rejected at start.
+
+**`review.json`** is written only when at least one segment is flagged, in
+`output/<job_id>/` and in the downloaded zip. Fields: `job_id`,
+`source_language`, `target_language`, `flagged_count`, and `segments`, each
+with `segment_id`, `page`, `file`, `source`, `translation` (null if missing),
+`failed_checks`, `messages`. It contains file names and document text, so it
+follows the job's lifetime: purged with the job, never logged.
+
+**Where it shows.** The web UI displays "N segment(s) need human review (see
+review.json in the download)"; the CLI prints the same count and the path of
+`review.json`; the job warnings carry one line per file.
+
+**Trace.** When `tracing` is enabled in `config.yaml`, one content-free line
+per batch is appended to `verification.jsonl` (next to the tracing file):
+check names, flags, counters and `input_ids` only.
+
+**Limits.** Numbers spelled out in words and Chinese-numeral amounts outside
+dates are not checked, and cache entries written before verification existed
+are served unchecked.
+
 ## Known limitations
 
 - **Scanned pages** — a page with no extractable text (a genuine scan) cannot
