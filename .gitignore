@@ -23,5 +23,8 @@ tmp/*
 .claude/settings.local.json
 *.local.txt
 
+# LLM call traces (local only, contain model output)
+traces/
+
 # Evaluation run outputs (the baseline and dataset are versioned)
 evaluation/reports/

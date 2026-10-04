@@ -1,4 +1,4 @@
-"""OAuth2 device-code flow (RFC 8628) against the internal LLM gateway.
+"""OAuth2 device-code flow (RFC 8628) against an OpenAI-compatible LLM gateway.
 
 The full device authorization grant is implemented here:
 
@@ -8,7 +8,7 @@ The full device authorization grant is implemented here:
    provides one), an ``expires_in`` and a polling ``interval``.
 2. User approval: the caller shows the ``verification_uri`` and ``user_code``
    so the user can approve the request in their browser with their existing
-   corporate SSO session. This application never handles credentials.
+   identity provider's SSO session. This application never handles credentials.
 3. Polling: ``poll_for_token()`` polls the token endpoint at the gateway's
    interval, honouring ``authorization_pending`` (keep waiting), ``slow_down``
    (back off), and failing cleanly on ``expired_token`` / ``access_denied``.
@@ -80,7 +80,8 @@ class _Session:
 
 
 # Deployment model: this is a local POC — one process serves one user, whose own
-# SSO login produces the token held here, and who consumes their own quota. If
+# SSO login produces the token held here, and whose usage is billed to their own
+# account. If
 # this is ever deployed as a shared server for several users, this module-level
 # token must become per-user-session storage (e.g. keyed by an HTTP session
 # cookie), because a module global would otherwise hand one user's token to

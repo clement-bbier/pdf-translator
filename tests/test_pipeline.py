@@ -197,7 +197,9 @@ def test_partial_batch_failure_resilience() -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = Path(tmp) / "cache.json"
             original_cache_cls = pipeline_module.TranslationCache
-            pipeline_module.TranslationCache = lambda: original_cache_cls(cache_path)  # type: ignore[assignment]
+            pipeline_module.TranslationCache = lambda **scope: original_cache_cls(
+                cache_path, **scope
+            )  # type: ignore[assignment]
             try:
                 result = _run_and_track([fixture], "zh", "fr", config)
             finally:

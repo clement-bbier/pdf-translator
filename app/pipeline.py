@@ -72,6 +72,8 @@ class JobResult:
             total.cache_hits += file_result.stats.cache_hits
             total.api_calls += file_result.stats.api_calls
             total.estimated_tokens += file_result.stats.estimated_tokens
+            total.model = total.model or file_result.stats.model
+            total.prompt_version = total.prompt_version or file_result.stats.prompt_version
         return total
 
 
@@ -217,7 +219,10 @@ def _translate_file(
     """Run the full pipeline (extract -> dedup -> translate -> rebuild) on one file."""
     file_label = file_path.name
     warnings: list[str] = []
-    stats = JobStats()
+    stats = JobStats(
+        model=getattr(translator, "model", None),
+        prompt_version=getattr(translator, "prompt_version", None),
+    )
 
     if progress_cb:
         progress_cb(f"{file_label}: extraction")
@@ -325,7 +330,10 @@ def run_job(
     job_output_dir.mkdir(parents=True, exist_ok=True)
 
     translator = get_translator(config)
-    cache = TranslationCache()
+    cache = TranslationCache(
+        model=getattr(translator, "model", None) or "",
+        prompt_version=getattr(translator, "prompt_version", None) or "",
+    )
 
     result = JobResult(job_id=job_id)
     total = len(files)
