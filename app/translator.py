@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from app.llm.anthropic_provider import AnthropicProvider
+from app.config import llm_settings
 from app.llm.errors import TranslationError
+from app.llm.factory import build_provider
 from app.llm.fake_provider import FakeProvider
 from app.llm.gateway_provider import GatewayProvider
+from app.llm.prompts import PromptBuilder
 from app.llm.translator import LLMTranslator
 
 __all__ = [
@@ -108,21 +109,24 @@ def get_translator(config: dict[str, Any]) -> Translator:
     provider = config.get("provider", "mock")
     if provider == "mock":
         return MockTranslator()
+    if provider not in ("fake", "anthropic", "gateway"):
+        raise ValueError(f"unknown translator provider: {provider!r}")
+
+    llm = llm_settings(config)
     if provider == "fake":
-        return LLMTranslator(FakeProvider(), model=FakeProvider.MODEL_ID)
-    if provider == "anthropic":
-        llm = config.get("llm", {})
-        return LLMTranslator(
-            AnthropicProvider(),
-            model=llm.get("model", "claude-haiku-4-5-20251001"),
-            temperature=llm.get("temperature", 0),
-        )
-    if provider == "gateway":
-        base_url = os.environ.get("GATEWAY_BASE_URL")
-        if not base_url:
-            raise TranslationError("GATEWAY_BASE_URL is not set")
-        return GatewayTranslator(base_url=base_url, model=config.get("model", ""))
-    raise ValueError(f"unknown translator provider: {provider!r}")
+        model = FakeProvider.MODEL_ID
+    elif provider == "gateway":
+        # The top-level `model` is the gateway/UI selection and overrides llm.model.
+        model = config.get("model") or llm.model
+    else:
+        model = llm.model
+    return LLMTranslator(
+        build_provider(provider, config),
+        model=model,
+        temperature=llm.temperature,
+        max_tokens=llm.max_tokens,
+        prompt_builder=PromptBuilder(llm.prompt_version),
+    )
 
 
 @dataclass(slots=True)
@@ -134,6 +138,8 @@ class JobStats:
     cache_hits: int = 0
     api_calls: int = 0
     estimated_tokens: int = 0
+    model: str | None = None
+    prompt_version: str | None = None
 
     def record_blocks(self, texts: list[str]) -> None:
         """Register the total and unique block counts for a batch of texts."""
@@ -152,8 +158,11 @@ class JobStats:
     def summary(self) -> str:
         """One-line human-readable summary."""
         dedup_pct = 100 * (1 - self.unique_blocks / self.total_blocks) if self.total_blocks else 0
-        return (
+        text = (
             f"blocks={self.total_blocks} unique={self.unique_blocks} "
             f"(dedup {dedup_pct:.0f}%) cache_hits={self.cache_hits} "
             f"api_calls={self.api_calls} estimated_tokens={self.estimated_tokens}"
         )
+        if self.model:
+            text += f" model={self.model} prompt={self.prompt_version}"
+        return text

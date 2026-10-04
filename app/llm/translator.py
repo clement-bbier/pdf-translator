@@ -6,7 +6,7 @@ import json
 
 from app.llm.base import LLMProvider, LLMRequest
 from app.llm.errors import TranslationError
-from app.llm.prompts import blocks_messages, page_image_messages
+from app.llm.prompts import PromptBuilder
 
 
 class LLMTranslator:
@@ -19,13 +19,14 @@ class LLMTranslator:
         model: str,
         temperature: float | None = None,
         max_tokens: int = 4096,
-        prompt_version: str = "v1",
+        prompt_builder: PromptBuilder | None = None,
     ) -> None:
         self._provider = provider
         self.model = model
         self._temperature = temperature
         self._max_tokens = max_tokens
-        self.prompt_version = prompt_version
+        self._prompts = prompt_builder or PromptBuilder("v1")
+        self.prompt_version = self._prompts.version
 
     def _request(self, messages: list[dict]) -> LLMRequest:
         return LLMRequest(
@@ -42,7 +43,9 @@ class LLMTranslator:
             return []
 
         payload_map = {str(index): text for index, text in enumerate(blocks)}
-        response = self._provider.complete(self._request(blocks_messages(payload_map, src, tgt)))
+        response = self._provider.complete(
+            self._request(self._prompts.blocks_messages(payload_map, src, tgt))
+        )
 
         try:
             parsed = json.loads(response.text)
@@ -63,6 +66,6 @@ class LLMTranslator:
         if not image_bytes:
             raise TranslationError("page image is empty")
         response = self._provider.complete(
-            self._request(page_image_messages(image_bytes, src, tgt))
+            self._request(self._prompts.page_image_messages(image_bytes, src, tgt))
         )
         return response.text
