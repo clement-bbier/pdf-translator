@@ -98,7 +98,10 @@ class LLMTranslator:
             rendered = self._context_provider.render(blocks, src, tgt)
             context_text = rendered.text
             sources = dict(rendered.sources)
-            required = {key: list(terms) for key, terms in rendered.required_terms.items()}
+            # A term found twice in a segment is required once (one finding if missing).
+            required = {
+                key: list(dict.fromkeys(terms)) for key, terms in rendered.required_terms.items()
+            }
         for key, terms in collect_required_terms(
             self._term_providers, payload_map, src, tgt
         ).items():
