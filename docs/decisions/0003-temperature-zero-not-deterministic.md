@@ -25,8 +25,8 @@ run must not be taken as the model's behaviour.
   changing either never serves an old translation.
 - Evaluation of a real model must compare several runs, and `compare_models`
   in config lists the models to compare against (evaluation only). A single
-  run proves nothing about stability. Multi-run reporting is not implemented
-  in `evaluation/` yet; today `compare_models` is only validated config.
+  run proves nothing about stability. Multi-run reporting is implemented in
+  `evaluation/` (see 0010).
 
 ## Alternatives considered
 

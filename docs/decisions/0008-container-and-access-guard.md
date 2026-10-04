@@ -31,8 +31,7 @@ fonts.
   binds `127.0.0.1` only, with `read_only`, `cap_drop` and
   `no-new-privileges`.
 - **CI.** `eval-real.yml` is a manual workflow using the `ANTHROPIC_API_KEY`
-  secret. Until a `make eval-real` target exists it runs `make eval` with
-  `APP_PROVIDER=anthropic`.
+  secret and runs `make eval-real`.
 
 ## Alternatives considered
 

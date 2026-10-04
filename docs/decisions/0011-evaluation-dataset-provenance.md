@@ -40,5 +40,5 @@ its file names are kept even though they differ from the repository layout:
 - No document is shared between the evaluation set and the translation
   memory, so the translation-memory configuration cannot leak references.
 - Thirty segments give a coarse yardstick: small differences are noise, which
-  is why runs are repeated (see 0003).
+  is why runs are repeated (see 0010).
 - Adding a document means updating `SOURCES.md` in both workstreams.

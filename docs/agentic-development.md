@@ -155,6 +155,27 @@ all fixed in the configuration described above:
 The security auditor also raised a real issue in the feature itself (the
 `setuptools>=61` build floor admitted vulnerable versions), fixed afterwards.
 
+## Building this project with the workflow
+
+The production upgrade (RAG, verification, evaluation, container) was built
+with this workflow. Phase 1 (LLM foundation) and then four workstreams
+(terminology, verification, evaluation, container and CI) each ran as a
+`/feature` in a parallel headless session, each in its own git worktree. The
+operator integrated the branches one after the other and ran the real
+end-to-end test. What went wrong, and what was done about it:
+
+| Observed | Handling |
+| --- | --- |
+| The plan checkpoint was skipped once in a headless run | The run was checked and the plan approved afterwards by the operator; the checkpoint is a rule of the `/feature` skill, not a mechanism |
+| Worktree creation timed out on an overloaded machine | Fallback: worktrees created by hand, same layout and branch naming |
+| The auto-mode classifier blocked an integration step | The operator performed that step after reviewing the diff; permissions were not widened |
+| Decision notes from parallel workstreams collided on the same numbers | Renumbered in integration order (0001 to 0011), cross-references fixed |
+| The fenced-JSON bug (the model wraps its JSON in a Markdown fence) was found only by the first real end-to-end run | Fixed in `app/llm/answer.py`, decision 0013; the fake model cannot reveal this class of bug |
+
+The last point is the main lesson: a green suite built on a fake model proves
+the plumbing, not the contact with a real model, so the real run stays a
+manual step of the operator.
+
 ## Usage
 
 ```text

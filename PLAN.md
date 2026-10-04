@@ -90,24 +90,24 @@ built in parallel against stable interfaces and merged independently.
 
 Phase 1 - foundation (one /feature, tasks in dependency order)
 
-- [ ] F1 `LLMProvider` protocol + `AnthropicProvider` (Claude) + `GatewayProvider` (moved from GatewayTranslator) + deterministic `FakeProvider`
-- [ ] F2 Pinned parameters in config.yaml: dated model id (claude-haiku-4-5-20251001), temperature 0, prompt version; claude-sonnet-5-5 as comparison model (it rejects sampling parameters)
-- [ ] F3 Versioned prompts in `prompts/v1/`, prompt version recorded with each translation
-- [ ] F4 JSONL trace per call: input id, prompt version, model, params, output, duration, estimated cost
-- [ ] F5 Cache keyed by input + prompt version + model (+ params)
+- [x] F1 `LLMProvider` protocol + `AnthropicProvider` (Claude) + `GatewayProvider` (moved from GatewayTranslator) + deterministic `FakeProvider`
+- [x] F2 Pinned parameters in config.yaml: dated model id (claude-haiku-4-5-20251001), temperature 0, prompt version; claude-sonnet-5-5 as comparison model (it rejects sampling parameters)
+- [x] F3 Versioned prompts in `prompts/v1/`, prompt version recorded with each translation
+- [x] F4 JSONL trace per call: input id, prompt version, model, params, output, duration, estimated cost
+- [x] F5 Cache keyed by input + prompt version + model (+ params)
 
 Phase 2 - four parallel workstreams (one /feature each, one worktree session each)
 
-- [ ] A RAG: finance glossary CSV (~50 terms, exact match, injected); translation memory with embeddings, top-3 examples, config switch
-- [ ] B Verification: code checks on every output; retry with errors, then human-review flag; never silent delivery
-- [ ] C Evaluation: 30 public zh->en segments with cited sources; glossary adherence, check pass rate, similarity, cost, latency; `make eval` report comparing 3 configs, 3 runs each
-- [ ] D Container and CI: multi-stage Dockerfile, non-root, CJK fonts, lock file; compose; password-protected UI; CI lint/test/build/eval
+- [x] A RAG: finance glossary CSV (~50 terms, exact match, injected); translation memory with embeddings, top-3 examples, config switch
+- [x] B Verification: code checks on every output; retry with errors, then human-review flag; never silent delivery
+- [x] C Evaluation: 30 public zh->en segments with cited sources; glossary adherence, check pass rate, similarity, cost, latency; `make eval` report comparing 3 configs, 3 runs each
+- [x] D Container and CI: multi-stage Dockerfile, non-root, CJK fonts, lock file; compose; password-protected UI; CI lint/test/build/eval
 
 Phase 3 - integration and proof
 
-- [ ] Merge A-D (tests green at each merge), full suite, image build, app in the container, end-to-end translation of a public demo document
+- [x] Merge A-D (tests green at each merge), full suite, image build, app in the container, end-to-end translation of a public demo document
 - [ ] `make eval` on the real model if a key is configured, otherwise on the fake model, labelled as such
-- [ ] README (what, mermaid architecture, 3-command start, evaluation results), docs/decisions/, docs/how-it-works.md
+- [x] README (what, mermaid architecture, 3-command start, evaluation results), docs/decisions/, docs/how-it-works.md
 - [ ] Final checks: no secret, no employer reference (search), CI green
 
 ### B.3 Dependencies
