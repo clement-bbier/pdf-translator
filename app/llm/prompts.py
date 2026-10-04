@@ -35,14 +35,22 @@ IMAGE_SYSTEM_PROMPT = (
 )
 
 
-def blocks_messages(payload_map: dict[str, str], src: str, tgt: str) -> list[dict[str, Any]]:
-    """System + user messages for a batch of text blocks."""
+def blocks_messages(
+    payload_map: dict[str, str], src: str, tgt: str, context: str = ""
+) -> list[dict[str, Any]]:
+    """System + user messages for a batch of text blocks.
+
+    A non-empty ``context`` (retrieved terminology or examples) goes between the
+    language header and the JSON payload; an empty one leaves the prompt unchanged.
+    """
+    context_part = f"{context}\n\n" if context else ""
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
                 f"Source language: {src}\nTarget language: {tgt}\n\n"
+                f"{context_part}"
                 f"{json.dumps(payload_map, ensure_ascii=False)}"
             ),
         },

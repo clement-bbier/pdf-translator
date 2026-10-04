@@ -23,6 +23,9 @@ class LLMRequest:
     max_tokens: int = 4096
     response_format: dict[str, Any] | None = None
     prompt_version: str = field(default="")
+    # Metadata, never sent to an API and not part of request_fingerprint: names and
+    # counts of the retrieval context providers that contributed to the prompt.
+    context_sources: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
