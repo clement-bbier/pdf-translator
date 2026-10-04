@@ -431,7 +431,7 @@ def test_gateway_translator_uses_real_auth_session() -> None:
 
 def _patch_client(translator: GatewayTranslator, transport: httpx.MockTransport) -> None:
     """Monkeypatch httpx.Client used inside the translator to route through transport."""
-    import app.translator as translator_module
+    import app.llm.gateway_provider as translator_module
 
     original_client = httpx.Client
 
@@ -444,7 +444,7 @@ def _patch_client(translator: GatewayTranslator, transport: httpx.MockTransport)
 
 def _patch_sleep() -> None:
     """Avoid real waiting during retry tests."""
-    import app.translator as translator_module
+    import app.llm.retry as translator_module
 
     translator_module.time.sleep = lambda seconds: None  # type: ignore[attr-defined]
 
@@ -482,7 +482,8 @@ def main() -> int:
         test_gateway_translator_uses_real_auth_session,
     ]
 
-    import app.translator as translator_module
+    import app.llm.gateway_provider as translator_module
+    import app.llm.retry as retry_module
 
     original_get_token = auth.get_token
     original_client = httpx.Client
@@ -497,7 +498,7 @@ def main() -> int:
         finally:
             auth.get_token = original_get_token  # type: ignore[attr-defined]
             translator_module.httpx.Client = original_client  # type: ignore[attr-defined]
-            translator_module.time.sleep = original_sleep  # type: ignore[attr-defined]
+            retry_module.time.sleep = original_sleep  # type: ignore[attr-defined]
         status = "OK" if len(FAILURES) == failures_before else "FAIL"
         print(f"[{status}] {test.__name__}")
 

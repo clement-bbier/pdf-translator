@@ -1,0 +1,68 @@
+"""Translator built on any LLMProvider."""
+
+from __future__ import annotations
+
+import json
+
+from app.llm.base import LLMProvider, LLMRequest
+from app.llm.errors import TranslationError
+from app.llm.prompts import blocks_messages, page_image_messages
+
+
+class LLMTranslator:
+    """Implements the Translator protocol on top of an LLMProvider."""
+
+    def __init__(
+        self,
+        provider: LLMProvider,
+        *,
+        model: str,
+        temperature: float | None = None,
+        max_tokens: int = 4096,
+        prompt_version: str = "v1",
+    ) -> None:
+        self._provider = provider
+        self.model = model
+        self._temperature = temperature
+        self._max_tokens = max_tokens
+        self.prompt_version = prompt_version
+
+    def _request(self, messages: list[dict]) -> LLMRequest:
+        return LLMRequest(
+            messages=messages,
+            model=self.model,
+            temperature=self._temperature,
+            max_tokens=self._max_tokens,
+            prompt_version=self.prompt_version,
+        )
+
+    def translate_blocks(self, blocks: list[str], src: str, tgt: str) -> list[str]:
+        """Translate a batch of blocks in one call; raises TranslationError on failure."""
+        if not blocks:
+            return []
+
+        payload_map = {str(index): text for index, text in enumerate(blocks)}
+        response = self._provider.complete(self._request(blocks_messages(payload_map, src, tgt)))
+
+        try:
+            parsed = json.loads(response.text)
+        except ValueError as error:
+            raise TranslationError(f"malformed model response: {error}") from error
+        if not isinstance(parsed, dict):
+            raise TranslationError("model response JSON is not an object")
+
+        missing = [key for key in payload_map if key not in parsed]
+        if missing:
+            raise TranslationError(
+                f"model response missing {len(missing)} of {len(payload_map)} keys"
+            )
+        return [str(parsed[str(index)]) for index in range(len(blocks))]
+
+    def translate_page_image(self, image_bytes: bytes, src: str, tgt: str) -> str:
+        """Translate a scanned page sent as a PNG image; returns plain text."""
+        if not image_bytes:
+            raise TranslationError("page image is empty")
+        response = self._provider.complete(
+            self._request(page_image_messages(image_bytes, src, tgt))
+        )
+        return response.text
