@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pymupdf
 
+from app import __version__, fonts
 from app import config as app_config
-from app import fonts
 from app.extractor import extract
 from app.models import Block, DocumentData
 
@@ -314,6 +314,7 @@ def _write_block(
 def main(argv: list[str] | None = None) -> int:
     """CLI: rebuild a PDF, reinserting the source text when no translation is given."""
     parser = argparse.ArgumentParser(description="Rebuild a PDF by replacing its text blocks.")
+    parser.add_argument("--version", action="version", version=f"pdf-translator {__version__}")
     parser.add_argument("pdf", type=Path, help="path to the source PDF")
     parser.add_argument("-o", "--output", type=Path, required=True, help="output PDF")
     parser.add_argument("--target-lang", default="fr", help="target language (fr, en, zh, ja, ko)")

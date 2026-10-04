@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pymupdf
 
+from app import __version__
 from app import config as app_config
 from app.cache import TranslationCache
 from app.extractor import extract
@@ -344,6 +345,7 @@ def run_job(
 def main(argv: list[str] | None = None) -> int:
     """CLI: translate one or more PDFs with the configured (or forced) provider."""
     parser = argparse.ArgumentParser(description="Translate PDF files end to end.")
+    parser.add_argument("--version", action="version", version=f"pdf-translator {__version__}")
     parser.add_argument("files", nargs="+", type=Path, help="PDF files to translate")
     parser.add_argument("--src", required=True, help="source language (zh, ja, ko, en, fr)")
     parser.add_argument("--tgt", required=True, help="target language (fr, en)")

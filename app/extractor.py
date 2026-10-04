@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pymupdf
 
+from app import __version__
 from app import config as app_config
 from app.models import BBox, Block, DocumentData, PageData
 
@@ -256,6 +257,7 @@ def _print_report(document: DocumentData) -> None:
 def main(argv: list[str] | None = None) -> int:
     """CLI: display the blocks extracted from a PDF."""
     parser = argparse.ArgumentParser(description="Extract text blocks from a PDF.")
+    parser.add_argument("--version", action="version", version=f"pdf-translator {__version__}")
     parser.add_argument("pdf", type=Path, help="path to the PDF file")
     parser.add_argument("--json", action="store_true", help="output JSON")
     parser.add_argument("--verbose", action="store_true", help="enable info logs")

@@ -117,7 +117,10 @@ Every module is also independently testable from the CLI, e.g.:
 ```powershell
 python -m app.extractor tests/fixtures/simple.pdf
 python -m app.pipeline tests/fixtures/simple.pdf --src zh --tgt fr --provider mock
+python -m app.pipeline --version
 ```
+
+Every module CLI accepts `--version` and prints `pdf-translator <version>`.
 
 ## Authentication
 
