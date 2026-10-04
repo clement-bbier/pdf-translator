@@ -668,6 +668,7 @@ def test_guard_role_read_only_roles() -> None:
         "make lint 2>&1 | tail -20",
         "git diff abc...HEAD",
         ".venv/Scripts/python.exe scripts/run_tests.py hooks",
+        "PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/run_tests.py llm",
         "cd /tmp/wt && make test",
     ):
         check(

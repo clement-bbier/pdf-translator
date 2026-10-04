@@ -116,6 +116,10 @@ def _normalize(part: str) -> str:
         tokens = shlex.split(part, posix=True)
     except ValueError:
         tokens = part.split()
+    # Leading environment assignments (PYTHONIOENCODING=utf-8 python ...) do not
+    # change which command runs.
+    while tokens and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[0]):
+        tokens = tokens[1:]
     if not tokens:
         return ""
     head = Path(tokens[0].replace("\\", "/")).name.lower()
