@@ -6,9 +6,9 @@ import argparse
 import logging
 import sys
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 import pymupdf
 
@@ -34,9 +34,7 @@ def _validate_file(file_path: Path, config: dict) -> None:
     max_file_mb = float(config.get("max_file_mb", 20))
     size_mb = file_path.stat().st_size / (1024 * 1024)
     if size_mb > max_file_mb:
-        raise ValueError(
-            f"{file_path.name}: file too large ({size_mb:.1f} MB > {max_file_mb} MB)"
-        )
+        raise ValueError(f"{file_path.name}: file too large ({size_mb:.1f} MB > {max_file_mb} MB)")
 
     with file_path.open("rb") as handle:
         header = handle.read(len(PDF_MAGIC))
@@ -101,9 +99,9 @@ def _translate_missing(
         try:
             results = translator.translate_blocks(batch, src, tgt)
             stats.record_api_call(batch)
-            for original, translated in zip(batch, results):
+            for original, translated in zip(batch, results, strict=False):
                 translations[original] = translated
-            cache.set_many(dict(zip(batch, results)), src, tgt)
+            cache.set_many(dict(zip(batch, results, strict=False)), src, tgt)
         except Exception as error:  # noqa: BLE001 - a failed batch must not kill the job
             logger.warning("batch %d/%d failed: %s", index, len(batches), type(error).__name__)
             warnings.append(
@@ -182,9 +180,7 @@ def _translate_scanned_pages(
                 if not rebuild_scanned_page(out_doc, number, translated, tgt):
                     raise ValueError("empty translation")
             except Exception as error:  # noqa: BLE001 - one page must not kill the job
-                logger.warning(
-                    "scanned page %d failed: %s", number + 1, type(error).__name__
-                )
+                logger.warning("scanned page %d failed: %s", number + 1, type(error).__name__)
                 warnings.append(
                     f"{file_label}: scanned page {number + 1} could not be translated "
                     f"({type(error).__name__}), left as the original image"

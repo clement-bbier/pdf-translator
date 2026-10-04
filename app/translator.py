@@ -95,8 +95,7 @@ class MockTranslator:
             raise TranslationError("page image is empty")
 
         paragraphs = [
-            f"[{tgt}] Scanned page translated from {src} "
-            f"({len(image_bytes)} bytes of image data).",
+            f"[{tgt}] Scanned page translated from {src} ({len(image_bytes)} bytes of image data).",
             f"[{tgt}] This is the second paragraph of the mock page "
             "translation, long enough to wrap across several lines when it is "
             "written back into a rebuilt page.",
@@ -183,7 +182,9 @@ class GatewayTranslator:
         return content
 
     def _call_with_retry(self, payload_map: dict[str, str], src: str, tgt: str) -> dict[str, str]:
-        return self._parse_response(self._request_with_retry(self._build_body(payload_map, src, tgt)))
+        return self._parse_response(
+            self._request_with_retry(self._build_body(payload_map, src, tgt))
+        )
 
     def _build_body(self, payload_map: dict[str, str], src: str, tgt: str) -> dict[str, Any]:
         return {
@@ -205,9 +206,7 @@ class GatewayTranslator:
         headers = {"Authorization": f"Bearer {auth.get_token()}"}
 
         with httpx.Client(timeout=self._timeout) as client:
-            response = client.post(
-                f"{self._base_url}/chat/completions", json=body, headers=headers
-            )
+            response = client.post(f"{self._base_url}/chat/completions", json=body, headers=headers)
 
         if response.status_code in RETRYABLE_STATUS:
             raise _RetryableError(f"gateway returned {response.status_code}")
@@ -297,9 +296,7 @@ class JobStats:
 
     def summary(self) -> str:
         """One-line human-readable summary."""
-        dedup_pct = (
-            100 * (1 - self.unique_blocks / self.total_blocks) if self.total_blocks else 0
-        )
+        dedup_pct = 100 * (1 - self.unique_blocks / self.total_blocks) if self.total_blocks else 0
         return (
             f"blocks={self.total_blocks} unique={self.unique_blocks} "
             f"(dedup {dedup_pct:.0f}%) cache_hits={self.cache_hits} "

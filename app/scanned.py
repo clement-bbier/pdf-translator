@@ -105,9 +105,7 @@ def rebuild_scanned_page(
     doc.delete_page(page_number)
     page = doc.new_page(page_number, width=rect.width, height=rect.height)
 
-    writer_rect = pymupdf.Rect(
-        MARGIN, MARGIN, rect.width - MARGIN, rect.height - MARGIN
-    )
+    writer_rect = pymupdf.Rect(MARGIN, MARGIN, rect.width - MARGIN, rect.height - MARGIN)
     font = pymupdf.Font(fontfile=fontfile) if fontfile else pymupdf.Font(fontname)
     line_height = BODY_FONT_SIZE * LINE_SPACING
 

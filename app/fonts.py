@@ -170,7 +170,9 @@ def sanitize_latin1(text: str) -> tuple[str, int]:
 
 
 @functools.lru_cache(maxsize=4096)
-def _renderable_chars(charset: frozenset[str], fontname: str, fontfile: str | None) -> frozenset[str]:
+def _renderable_chars(
+    charset: frozenset[str], fontname: str, fontfile: str | None
+) -> frozenset[str]:
     """Return the subset of characters the font actually renders.
 
     Ground truth: write them to a scratch PDF and read them back. ``has_glyph``

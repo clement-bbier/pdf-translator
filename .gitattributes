@@ -1,0 +1,5 @@
+# Normalize text files to LF in the repository: hook scripts, the Makefile and
+# shell snippets also run on Linux (CI, Docker).
+* text=auto eol=lf
+*.pdf binary
+*.png binary

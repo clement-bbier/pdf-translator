@@ -14,7 +14,7 @@ DEFAULT_CACHE_PATH = Path(__file__).resolve().parent.parent / "tmp" / "cache.jso
 
 def _hash_key(src: str, tgt: str, text: str) -> str:
     """Return sha256(src|tgt|text) as the cache key. Content itself is never logged."""
-    payload = f"{src}|{tgt}|{text}".encode("utf-8")
+    payload = f"{src}|{tgt}|{text}".encode()
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -33,7 +33,11 @@ class TranslationCache:
             with self._path.open("r", encoding="utf-8") as handle:
                 self._data = json.load(handle)
         except (OSError, ValueError) as error:
-            logger.warning("cache: failed to load %s (%s), starting empty", self._path.name, type(error).__name__)
+            logger.warning(
+                "cache: failed to load %s (%s), starting empty",
+                self._path.name,
+                type(error).__name__,
+            )
             self._data = {}
 
     def _save(self) -> None:

@@ -263,7 +263,7 @@ def test_get_token_returns_valid_token_without_refresh() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["count"] += 1
-        return _token_response(access_token="should-not-be-used")
+        return _token_response(access_token="should-not-be-used")  # secret-scan: allow
 
     _patch_transport(httpx.MockTransport(handler))
     auth._session = auth._Session(  # type: ignore[attr-defined]
@@ -315,7 +315,10 @@ def test_concurrent_get_token_refreshes_once() -> None:
             calls["count"] += 1
         # Slow enough that every thread piles up on the auth lock.
         time.sleep(0.05)
-        return _token_response(access_token="access-token-refreshed", expires_in=3600)
+        return _token_response(
+            access_token="access-token-refreshed",  # secret-scan: allow
+            expires_in=3600,
+        )
 
     _patch_transport(httpx.MockTransport(handler))
     auth._session = auth._Session(  # type: ignore[attr-defined]
@@ -380,7 +383,7 @@ def test_is_authenticated_never_leaks_the_token() -> None:
     _set_env()
     auth.reset()
     auth._session = auth._Session(  # type: ignore[attr-defined]
-        access_token="super-secret-token",
+        access_token="super-secret-token",  # secret-scan: allow
         refresh_token="refresh-token-1",
         expires_at=time.monotonic() + 1800,
     )

@@ -103,9 +103,7 @@ def test_too_many_files_rejected() -> None:
                 ("files", (f"file_{i}.pdf", handle, "application/pdf"))
                 for i, handle in enumerate(handles)
             ]
-            response = client.post(
-                "/jobs", files=files_payload, data={"src": "zh", "tgt": "fr"}
-            )
+            response = client.post("/jobs", files=files_payload, data={"src": "zh", "tgt": "fr"})
         finally:
             for handle in handles:
                 handle.close()

@@ -71,9 +71,7 @@ def _purge_expired_jobs() -> None:
     now = time.monotonic()
     with _jobs_lock:
         expired = [
-            job_id
-            for job_id, state in _jobs.items()
-            if now - state.created_at > JOB_TTL_SECONDS
+            job_id for job_id, state in _jobs.items() if now - state.created_at > JOB_TTL_SECONDS
         ]
         for job_id in expired:
             del _jobs[job_id]
@@ -584,9 +582,7 @@ def _execute_job(job_id: str, files: list[Path], src: str, tgt: str, config: dic
                 _jobs[job_id].message = "done"
                 _jobs[job_id].result = result
         duration = time.monotonic() - started
-        logger.info(
-            "job %s done: %d file(s), %.1fs", job_id, len(files), duration
-        )
+        logger.info("job %s done: %d file(s), %.1fs", job_id, len(files), duration)
     except Exception as error:  # noqa: BLE001 - job failure must not crash the worker
         with _jobs_lock:
             if job_id in _jobs:
@@ -617,9 +613,7 @@ async def create_job(
     if not files:
         raise HTTPException(status_code=400, detail="No file provided.")
     if len(files) > max_files:
-        raise HTTPException(
-            status_code=400, detail=f"Too many files ({len(files)} > {max_files})."
-        )
+        raise HTTPException(status_code=400, detail=f"Too many files ({len(files)} > {max_files}).")
     if src not in languages.get("source", []):
         raise HTTPException(status_code=400, detail="Invalid source language.")
     if tgt not in languages.get("target", []):

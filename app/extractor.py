@@ -115,9 +115,7 @@ def _block_style(lines: list[dict]) -> tuple[float, str, bool, bool]:
                 round(float(span["size"]), 1),
                 name,
                 bool(span["flags"] & _FLAG_BOLD) or "bold" in lowered,
-                bool(span["flags"] & _FLAG_ITALIC)
-                or "italic" in lowered
-                or "oblique" in lowered,
+                bool(span["flags"] & _FLAG_ITALIC) or "italic" in lowered or "oblique" in lowered,
             )
             weights[key] = weights.get(key, 0) + length
 
@@ -176,9 +174,7 @@ def _extract_page(page: pymupdf.Page, index: int) -> PageData:
     for block in text_blocks:
         groups = _split_columns(block["lines"])
         for column, lines in enumerate(groups):
-            text = " ".join(
-                _line_text(line).strip() for line in lines if _line_text(line).strip()
-            )
+            text = " ".join(_line_text(line).strip() for line in lines if _line_text(line).strip())
             text = re.sub(r"[ \t]+", " ", text).strip()
             if not text:
                 continue

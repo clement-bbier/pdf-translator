@@ -73,7 +73,7 @@ def test_mock_translator_batch_order() -> None:
     results = translator.translate_blocks(texts, "fr", "en")
 
     check(len(results) == len(texts), "batch result length mismatch")
-    for original, translated in zip(texts, results):
+    for original, translated in zip(texts, results, strict=True):
         check(original in translated, f"batch item lost: {original!r} not in {translated!r}")
 
 
@@ -197,11 +197,7 @@ def test_factory_unknown_provider() -> None:
 
 
 def _openai_response(payload: dict[str, str]) -> httpx.Response:
-    body = {
-        "choices": [
-            {"message": {"content": json.dumps(payload, ensure_ascii=False)}}
-        ]
-    }
+    body = {"choices": [{"message": {"content": json.dumps(payload, ensure_ascii=False)}}]}
     return httpx.Response(200, json=body)
 
 
@@ -409,7 +405,7 @@ def test_gateway_translator_uses_real_auth_session() -> None:
 
     auth.reset()
     auth._session = auth._Session(  # type: ignore[attr-defined]
-        access_token="session-token-xyz",
+        access_token="session-token-xyz",  # secret-scan: allow
         refresh_token="refresh-1",
         expires_at=time.monotonic() + 3600,
     )

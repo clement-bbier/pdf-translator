@@ -157,9 +157,7 @@ def request_device_code() -> DeviceCodeResponse:
         raise AuthError(f"device authorization request failed: {error}") from error
 
     if response.status_code >= 400:
-        raise AuthError(
-            f"device authorization rejected by the gateway ({response.status_code})"
-        )
+        raise AuthError(f"device authorization rejected by the gateway ({response.status_code})")
 
     try:
         payload = response.json()
@@ -169,9 +167,7 @@ def request_device_code() -> DeviceCodeResponse:
     required = ("device_code", "user_code", "verification_uri")
     missing = [key for key in required if not payload.get(key)]
     if missing:
-        raise AuthError(
-            f"device authorization response missing {', '.join(missing)}"
-        )
+        raise AuthError(f"device authorization response missing {', '.join(missing)}")
 
     return DeviceCodeResponse(
         device_code=str(payload["device_code"]),
@@ -286,9 +282,7 @@ def get_token() -> str:
     with _lock:
         current = _session
         if current is None:
-            raise AuthError(
-                "not signed in to the gateway: start the device-code flow first"
-            )
+            raise AuthError("not signed in to the gateway: start the device-code flow first")
 
         # Re-checked inside the lock: concurrent callers that all saw an expiring
         # token queue here, and only the first one actually refreshes.
