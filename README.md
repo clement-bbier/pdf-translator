@@ -8,8 +8,10 @@ reconstruction are fully deterministic.
 
 Upload up to a handful of PDF contracts, pick a source and target language,
 and get back translated PDFs that preserve the original layout as closely as
-possible — text position, font size (shrunk if needed), and color. No content
-is stored beyond the lifetime of a job.
+possible — text position, font size (shrunk if needed), and color. Uploaded
+and generated PDFs are deleted with the job. Translated text, however, is
+also written to local cache and trace files that outlive the job; see
+[Data that persists after a job](#data-that-persists-after-a-job).
 
 ## Architecture
 
@@ -47,11 +49,19 @@ is stored beyond the lifetime of a job.
 - **extractor.py** — uses PyMuPDF to pull text blocks with their coordinates,
   font, and color out of a PDF, and flags scanned (non-extractable) pages.
 - **translator.py** — defines the `Translator` interface
-  (`translate_blocks(blocks, src, tgt) -> list[str]`) plus two
-  implementations: `MockTranslator` (deterministic, no network, used in
-  tests and local development) and `GatewayTranslator` (calls an
-  OpenAI-compatible chat/completions endpoint through an LLM gateway). The rest of the codebase only ever talks to this interface —
-  nothing else knows which provider or model is behind it.
+  (`translate_blocks(blocks, src, tgt) -> list[str]`), `MockTranslator`
+  (deterministic, no network, the default), `GatewayTranslator` (a
+  compatibility alias of `LLMTranslator` over the gateway provider) and
+  `get_translator(config)`, which builds the translator named by `provider`.
+  The rest of the codebase only talks to the `Translator` interface.
+- **llm/** — the LLM layer behind `LLMTranslator`: the `LLMProvider`
+  protocol (`base.py`), providers for Anthropic, an OpenAI-compatible gateway
+  and a deterministic fake, `PromptBuilder` (reads `prompts/<version>/`), the
+  shared retry policy, `factory.py` (base provider, then `CachedProvider`,
+  then `TracingProvider`). See
+  `docs/decisions/0002-llm-provider-interface-and-fake-model.md`.
+- **config.py** — loads `config.yaml` and validates the `llm`, `rag`,
+  `verification`, `tracing` and `cache` sections.
 - **rebuilder.py** — redacts the original text blocks and reinserts the
   translated text in the same area, shrinking the font size or falling back
   to truncation when the translation doesn't fit.
@@ -62,8 +72,9 @@ is stored beyond the lifetime of a job.
   detects characters a font would silently drop. Uses only fonts embedded in
   the `pymupdf` package — nothing to install on the machine.
 - **cache.py** — deduplicates translation calls by hashing each text block
-  (scoped by source/target language pair), persisted to a local JSON file
-  for the session.
+  (scoped by model, prompt version and source/target language pair),
+  persisted to `tmp/cache.json`. The file is not purged after a job; see
+  [Data that persists after a job](#data-that-persists-after-a-job).
 - **auth.py** — OAuth2 device-code flow used to authenticate
   `GatewayTranslator` against an OpenAI-compatible LLM gateway protected by an OAuth2 device-code flow. See
   [Authentication](#authentication) below.
@@ -245,7 +256,7 @@ the in-memory state it applies to.
 ## Configuration (`config.yaml`)
 
 ```yaml
-provider: mock          # mock | gateway
+provider: mock          # mock | fake | anthropic | gateway
 model: gemini-2.5-flash # default model (provider: gateway only)
 models:                 # choices offered in the UI select
   - gemini-2.5-flash-lite
@@ -264,6 +275,98 @@ languages:
 `config.yaml` never contains secrets — only non-sensitive settings. Switch
 `provider` to `gateway` to use the real translation backend (requires `.env`
 to be configured as described above).
+
+### Providers
+
+`provider` selects the backend. The default is `mock`.
+
+| Value | Backend | Needs |
+| --- | --- | --- |
+| `mock` | `MockTranslator`: deterministic placeholders, no LLM code path | nothing |
+| `fake` | `FakeProvider` behind `LLMTranslator`: deterministic, offline, exercises prompts, cache and tracing | nothing |
+| `anthropic` | Anthropic Messages API | `ANTHROPIC_API_KEY` in `.env` |
+| `gateway` | OpenAI-compatible gateway (OAuth2 device flow) | the `GATEWAY_*` variables, see above |
+
+`ANTHROPIC_API_KEY` is read from `.env` (the name is listed in
+`.env.example`; the value is never in `config.yaml` and never logged). The
+cache and tracing wrappers below apply to `fake`, `anthropic` and `gateway`,
+not to `mock`.
+
+### `llm:` section
+
+Pinned parameters for `fake`, `anthropic` and `gateway`. The `gateway`
+provider takes its model from the top-level `model` key instead of
+`llm.model`.
+
+```yaml
+llm:
+  model: claude-haiku-4-5-20251001   # dated model id, not an alias
+  temperature: 0                     # null = not sent
+  max_tokens: 4096
+  timeout: 60                        # seconds
+  prompt_version: v1                 # reads prompts/<version>/
+  compare_models:                    # evaluation only
+    - {model: claude-sonnet-5-5, temperature: null}
+  prices:                            # USD per million tokens, for cost estimates
+    claude-haiku-4-5-20251001: {input: 1.00, output: 5.00}
+    claude-sonnet-5-5: {input: 2.00, output: 10.00}
+```
+
+- Unknown keys and invalid values fail validation at load time.
+- Temperature 0 does not guarantee identical outputs; see
+  `docs/decisions/0003-temperature-zero-not-deterministic.md`.
+- Sonnet/Opus 5.x models reject sampling parameters, so `temperature` is
+  omitted for ids starting with `claude-sonnet-5` or `claude-opus-5`.
+- `compare_models` lists models to compare against the main one in
+  evaluation. It has no effect on a normal translation job.
+- `prices` feed the `estimated_cost_usd` field of the trace. A model without
+  an entry gets no cost estimate.
+- Prompts are versioned files under `prompts/<prompt_version>/`. Changing
+  `prompt_version` also changes cache keys.
+
+### Phase 2 switches (no-ops)
+
+`rag` (`glossary`, `translation_memory`, paths, `tm_top_k`) and
+`verification` (`enabled`, `max_retries`) are validated but not wired to
+anything yet. Setting them to `true` changes no behaviour.
+
+### `tracing` and `cache`
+
+```yaml
+tracing: {enabled: true, path: traces/llm-calls.jsonl}
+cache:   {enabled: true, path: tmp/llm-cache.json}
+```
+
+- `tracing` appends one JSON line per LLM call: ids, model, token counts,
+  duration, estimated cost, cache hit, status, and the **model output
+  (translated text)**. Input messages are not stored.
+- `cache` stores LLM responses keyed by a hash of the whole request, so an
+  identical request is answered from disk without calling the model. Failed
+  calls and responses the translator rejects are not kept.
+
+Both are on by default and both write translated text to disk; see below.
+
+### Data that persists after a job
+
+| File | Content | Written when |
+| --- | --- | --- |
+| `traces/llm-calls.jsonl` | model output (translated text) plus metadata | `tracing.enabled`, providers other than `mock` |
+| `tmp/llm-cache.json` | LLM responses (translated text) | `cache.enabled`, providers other than `mock` |
+| `tmp/cache.json` | per-block translations, keyed by hash | every provider, including `mock` |
+
+None of these is removed by the per-job cleanup or the 30-minute purge, and
+none has a size cap or expiry. They stay on the local machine: `traces/` and
+`tmp/*` are gitignored, and the application logger never receives their
+content (see `docs/decisions/0004-traces-are-local-only.md`). Do not copy
+them into an image, archive or release.
+
+To stop writing them, set `tracing.enabled: false` and `cache.enabled: false`
+in `config.yaml`. `tmp/cache.json` has no switch. To remove what exists,
+delete the files (stop the app first):
+
+```powershell
+Remove-Item traces\llm-calls.jsonl, tmp\llm-cache.json, tmp\cache.json -ErrorAction SilentlyContinue
+```
 
 ## Known limitations
 
@@ -303,7 +406,8 @@ Conventions that bind every change:
 - Python 3.11+, type hints everywhere; code, comments and docstrings in
   English.
 - No dependency beyond `requirements.txt` (fastapi, uvicorn, pymupdf,
-  pydantic, python-dotenv, httpx, pyyaml) without discussion.
+  pydantic, python-dotenv, httpx, pyyaml, anthropic, httpx2) without
+  discussion. Choices are recorded in `docs/decisions/`.
 - Every module is independently runnable from the CLI
   (`python -m app.extractor file.pdf`, `python -m app.scanned file.pdf ...`).
 - Server logs carry counters and job IDs only — never document content, file
@@ -331,12 +435,14 @@ Fixtures under `tests/fixtures/` are generated PDFs (`tests/make_fixtures.py`)
 
 ## Security
 
-- **No content persistence beyond a job's lifetime.** Uploaded and generated
-  files live under per-job directories and are deleted when the result is
-  downloaded — and equally when a job fails mid-run (no partial output is
-  left behind).
+- **Uploaded and generated PDFs do not outlive a job.** They live under
+  per-job directories and are deleted when the result is downloaded, and
+  equally when a job fails mid-run (no partial output is left behind).
 - **Automatic purge.** Any job (downloaded or not) older than 30 minutes is
-  purged automatically.
+  purged automatically. This purge covers the job directories only.
+- **Translated text persists locally, outside the job directories.** See
+  [Data that persists after a job](#data-that-persists-after-a-job) for the
+  files, and for how to delete them or turn them off.
 - **Tokens kept in memory only.** OAuth2 access and refresh tokens obtained
   by `auth.py` are never written to disk.
 - **No content in logs.** Server logs only ever carry job IDs and counters
