@@ -67,10 +67,10 @@ class LLMSettings(_Strict):
 
 
 class VerificationSettings(_Strict):
-    """Output verification (Phase 2, no-op for now)."""
+    """Output verification; the runtime reads it through app.verification.settings."""
 
     enabled: bool = False
-    max_retries: int = Field(default=1, ge=0)
+    max_retries: int = Field(default=1, ge=0, le=3)
 
 
 class TracingSettings(_Strict):

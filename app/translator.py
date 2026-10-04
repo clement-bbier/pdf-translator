@@ -142,6 +142,16 @@ class JobStats:
     estimated_tokens: int = 0
     model: str | None = None
     prompt_version: str | None = None
+    # Verification counters, all in segments (see app/verification/policy.py).
+    verified: int = 0
+    retried: int = 0
+    flagged: int = 0
+
+    def record_verification(self, verified: int, retried: int, flagged: int) -> None:
+        """Register the outcome of one verified batch."""
+        self.verified += verified
+        self.retried += retried
+        self.flagged += flagged
 
     def record_blocks(self, texts: list[str]) -> None:
         """Register the total and unique block counts for a batch of texts."""
@@ -167,4 +177,6 @@ class JobStats:
         )
         if self.model:
             text += f" model={self.model} prompt={self.prompt_version}"
+        if self.verified or self.flagged:
+            text += f" verified={self.verified} retried={self.retried} flagged={self.flagged}"
         return text

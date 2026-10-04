@@ -36,9 +36,6 @@ llm:
     claude-haiku-4-5-20251001: {input: 1.00, output: 5.00}
     claude-sonnet-5-5: {input: 2.00, output: 10.00}
 
-# Output verification: Phase 2, no-op for now.
-verification: {enabled: false, max_retries: 1}
-
 # One JSONL line per LLM call: ids, counters, cost and the model output (translated
 # text). Local only, gitignored; input messages are not stored.
 tracing: {enabled: true, path: traces/llm-calls.jsonl}
@@ -51,6 +48,10 @@ cache: {enabled: true, path: tmp/llm-cache.json}
 # more tokens per page than the text path, so it is off by default. When off,
 # scanned pages are copied as-is and listed on a warning cover page.
 multimodal_enabled: false
+
+# Code checks on every LLM batch (JSON, segment count, numbers, dates, glossary):
+# one retry with the errors, then flag for human review. MockTranslator is never verified.
+verification: {enabled: true, max_retries: 1}
 
 max_files: 10
 max_file_mb: 20
