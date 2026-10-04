@@ -266,6 +266,33 @@ languages:
 `provider` to `gateway` to use the real translation backend (requires `.env`
 to be configured as described above).
 
+## Evaluation
+
+```
+make eval          # layout + translation suites, offline fake model, vs evaluation/baseline.json
+make eval-real     # translation suite with the real model (needs ANTHROPIC_API_KEY)
+make eval-report   # publish the translation report to docs/evaluation-report.md
+```
+
+The translation suite translates 30 short zh->en extracts from public HKEXnews
+announcements, three times per configuration, with the cache disabled. The
+three configurations are `no_rag`, `glossary` and `glossary_tm` (finance
+glossary, then glossary plus translation memory). Metrics: glossary
+adherence, check pass rate, similarity (`difflib`), chrF, cost, tokens and
+latency; each is reported as mean and standard deviation.
+
+**Caveat: with the fake model the numbers measure the pipeline plumbing, not
+translation quality.** The fake model applies glossary lines literally, so
+retrieval-augmented configurations look better than they would with a real
+model. Only `make eval-real` says something about quality. Until the
+retrieval and verification workstreams are merged, the three configurations
+run identically.
+
+Latest published report: [docs/evaluation-report.md](docs/evaluation-report.md).
+Design notes: [metrics](docs/decisions/0002-translation-metrics-stdlib.md),
+[runs and tolerance](docs/decisions/0003-evaluation-runs-and-tolerance.md),
+[dataset provenance](docs/decisions/0004-evaluation-dataset-provenance.md).
+
 ## Known limitations
 
 - **Scanned pages** — a page with no extractable text (a genuine scan) cannot
