@@ -27,6 +27,10 @@ batch_size: 20
 # scanned pages are copied as-is and listed on a warning cover page.
 multimodal_enabled: false
 
+# Code checks on every LLM batch (JSON, segment count, numbers, dates, glossary):
+# one retry with the errors, then flag for human review. MockTranslator is never verified.
+verification: {enabled: true, max_retries: 1}
+
 max_files: 10
 max_file_mb: 20
 font_min_scale: 0.6

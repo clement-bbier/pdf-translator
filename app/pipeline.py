@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import uuid
@@ -20,6 +21,8 @@ from app.models import Block, DocumentData
 from app.rebuilder import rebuild
 from app.scanned import rebuild_scanned_page, render_page_image
 from app.translator import JobStats, Translator, get_translator
+from app.verification.policy import SegmentOutcome
+from app.verification.settings import verification_config
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +55,8 @@ class FileResult:
     stats: JobStats
     warnings: list[str] = field(default_factory=list)
     scanned_page_count: int = 0
+    # Segments flagged by verification (contain document text: never log them).
+    review: list[dict] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -61,6 +66,12 @@ class JobResult:
     job_id: str
     files: list[FileResult] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    review_path: str | None = None
+
+    @property
+    def review_count(self) -> int:
+        """Number of segments flagged for human review across the job."""
+        return sum(len(file_result.review) for file_result in self.files)
 
     @property
     def stats(self) -> JobStats:
@@ -72,12 +83,54 @@ class JobResult:
             total.cache_hits += file_result.stats.cache_hits
             total.api_calls += file_result.stats.api_calls
             total.estimated_tokens += file_result.stats.estimated_tokens
+            total.record_verification(
+                file_result.stats.verified,
+                file_result.stats.retried,
+                file_result.stats.flagged,
+            )
         return total
 
 
 def _batched(items: list, size: int) -> list[list]:
     """Split a list into chunks of at most `size` items."""
     return [items[index : index + size] for index in range(0, len(items), size)]
+
+
+def _record_verification(
+    translator: Translator,
+    batch: list[str],
+    stats: JobStats,
+    flagged: dict[str, SegmentOutcome] | None,
+) -> dict[str, SegmentOutcome]:
+    """Read the translator's last verification (if any): count it, return flagged outcomes."""
+    verification = getattr(translator, "last_verification", None)
+    if verification is None:
+        return {}
+    stats.record_verification(
+        verification.verified, verification.retried, len(verification.flagged)
+    )
+    batch_flagged = {batch[int(outcome.key)]: outcome for outcome in verification.flagged}
+    if flagged is not None:
+        flagged.update(batch_flagged)
+    return batch_flagged
+
+
+def _configure_verification(translator: Translator, config: dict) -> None:
+    """Enable code checks on LLM-backed translators when config.yaml asks for it.
+
+    The mock translator has no enable_verification and is never verified.
+    """
+    settings = verification_config(config)
+    if not settings.enabled or not hasattr(translator, "enable_verification"):
+        return
+    tracing = config.get("tracing") or {}
+    trace_path: Path | None = None
+    if tracing.get("enabled") and tracing.get("path"):
+        base = Path(tracing["path"])
+        if not base.is_absolute():
+            base = OUTPUT_DIR.parent / base
+        trace_path = base.with_name("verification.jsonl")
+    translator.enable_verification(settings, trace_path=trace_path)  # type: ignore[attr-defined]
 
 
 def _translate_missing(
@@ -91,8 +144,14 @@ def _translate_missing(
     warnings: list[str],
     progress_cb: ProgressCallback | None,
     file_label: str,
+    flagged: dict[str, SegmentOutcome] | None = None,
 ) -> dict[str, str]:
-    """Translate texts absent from the cache, batch by batch; returns text -> translation."""
+    """Translate texts absent from the cache, batch by batch; returns text -> translation.
+
+    When the translator verifies its answers, ``flagged`` receives text -> outcome
+    for every segment that still needs human review. Flagged texts are never
+    cached, so a later run verifies them again.
+    """
     batches = _batched(texts, batch_size)
     translations: dict[str, str] = {}
 
@@ -100,9 +159,17 @@ def _translate_missing(
         try:
             results = translator.translate_blocks(batch, src, tgt)
             stats.record_api_call(batch)
+            batch_flagged = _record_verification(translator, batch, stats, flagged)
+            to_cache: dict[str, str] = {}
             for original, translated in zip(batch, results, strict=False):
+                outcome = batch_flagged.get(original)
+                if outcome is not None:
+                    if outcome.translation is not None:
+                        translations[original] = translated
+                    continue
                 translations[original] = translated
-            cache.set_many(dict(zip(batch, results, strict=False)), src, tgt)
+                to_cache[original] = translated
+            cache.set_many(to_cache, src, tgt)
         except Exception as error:  # noqa: BLE001 - a failed batch must not kill the job
             logger.warning("batch %d/%d failed: %s", index, len(batches), type(error).__name__)
             warnings.append(
@@ -250,8 +317,19 @@ def _translate_file(
 
     missing = sorted({text for text in texts if text not in cache_hits})
     batch_size = int(config.get("batch_size", 20))
+    flagged: dict[str, SegmentOutcome] = {}
     new_translations = _translate_missing(
-        missing, translator, cache, src, tgt, batch_size, stats, warnings, progress_cb, file_label
+        missing,
+        translator,
+        cache,
+        src,
+        tgt,
+        batch_size,
+        stats,
+        warnings,
+        progress_cb,
+        file_label,
+        flagged,
     )
 
     text_to_translation = {**cache_hits, **new_translations}
@@ -262,6 +340,29 @@ def _translate_file(
     }
 
     out_path = job_output_dir / f"{file_path.stem}_{tgt}.pdf"
+
+    review: list[dict] = []
+    if flagged:
+        for page in document.pages:
+            for block in page.blocks:
+                outcome = flagged.get(block.text) if block.is_translatable else None
+                if page.is_scanned or outcome is None:
+                    continue
+                review.append(
+                    {
+                        "segment_id": block.id,
+                        "page": page.number + 1,
+                        "file": out_path.name,
+                        "source": block.text,
+                        "translation": outcome.translation,
+                        "failed_checks": list(outcome.failed),
+                        "messages": [finding.message for finding in outcome.findings],
+                    }
+                )
+        if review:
+            warnings.append(
+                f"{file_label}: {len(review)} segment(s) flagged for human review (see review.json)"
+            )
 
     if progress_cb:
         progress_cb(f"{file_label}: rebuilding")
@@ -299,6 +400,7 @@ def _translate_file(
         stats=stats,
         warnings=warnings,
         scanned_page_count=len(scanned_pages),
+        review=review,
     )
 
 
@@ -325,6 +427,7 @@ def run_job(
     job_output_dir.mkdir(parents=True, exist_ok=True)
 
     translator = get_translator(config)
+    _configure_verification(translator, config)
     cache = TranslationCache()
 
     result = JobResult(job_id=job_id)
@@ -337,6 +440,22 @@ def run_job(
         )
         result.files.append(file_result)
         result.warnings.extend(file_result.warnings)
+
+    review_count = result.review_count
+    if review_count:
+        review_path = job_output_dir / "review.json"
+        review_doc = {
+            "job_id": job_id,
+            "source_language": src,
+            "target_language": tgt,
+            "flagged_count": review_count,
+            "segments": [entry for file_result in result.files for entry in file_result.review],
+        }
+        review_path.write_text(
+            json.dumps(review_doc, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        result.review_path = str(review_path)
+        logger.warning("job %s: %d segment(s) flagged for human review", job_id, review_count)
 
     logger.info("job %s done: %d file(s), %s", job_id, total, result.stats.summary())
     return result
@@ -388,6 +507,8 @@ def main(argv: list[str] | None = None) -> int:
         for warning in result.warnings:
             print(f"  - {warning}")
     print(f"\n{result.stats.summary()}")
+    if result.review_count:
+        print(f"{result.review_count} segment(s) need human review: {result.review_path}")
 
     return 0
 
