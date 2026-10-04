@@ -70,9 +70,14 @@ trace in history. Nothing is pushed.
 | `docs-writer` | README, decision notes, how-it-works, diagrams | Read, Grep, Glob, Edit, Write (Markdown and docs/ only) | sonnet | Clear technical prose from a known diff; no deep reasoning needed |
 
 "Read-only" agents still need to write their handoff, so they keep the Write
-tool but an agent-scoped hook (`guard_role.py <role>`, declared in their
-frontmatter) restricts writes to `.claude/handoffs/` and Bash to a per-role
-allowlist of command prefixes.
+tool, but `guard_role.py` restricts their writes to `.claude/handoffs/` and
+their Bash to a per-role allowlist of command prefixes. The hook is wired in
+`settings.json`, not in the agents' frontmatter, and reads the role from the
+`agent_type` field Claude Code adds to tool events inside a subagent: Claude
+Code skips frontmatter hooks of project agents until the workspace trust
+dialog has been accepted, which never happens in a headless `claude -p` run.
+The first demonstration run exposed this (a planner ran `sed` unchecked), and
+`make validate` now rejects hooks declared in agent frontmatter.
 
 ## Hooks
 
@@ -83,7 +88,7 @@ allowlist of command prefixes.
 | PreToolUse | Bash, PowerShell | `secret_scan.py` | On `git commit`: scans the added lines for secrets and local forbidden terms; blocks on a hit |
 | PreToolUse | Edit, Write, MultiEdit, NotebookEdit | `guard_write.py` | Blocks writes to `.env*` (except `.env.example`) and edits of existing eval references |
 | PreToolUse | Read, Grep | `guard_read.py` | Blocks reading `.env*` (except `.env.example`) |
-| PreToolUse (agent-scoped) | Bash, Write, Edit... | `guard_role.py <role>` | Keeps read-only roles read-only, docs-writer on Markdown |
+| PreToolUse | Bash, PowerShell, Write, Edit, MultiEdit, NotebookEdit | `guard_role.py` | Inside a subagent (`agent_type`): keeps read-only roles read-only and docs-writer on Markdown; no effect elsewhere |
 | PostToolUse | Edit, Write, MultiEdit | `lint_python.py` (via `run_hook.py`) | `ruff format` + `ruff check --fix` on the written `.py` file; unfixable issues go back to the agent (exit 2) |
 | SubagentStart | the six agents | `record_subagent_start.py` | Records the agent's start time |
 | SubagentStop | the six agents | `validate_handoff.py` (via `run_hook.py`) | Requires a handoff written since start and valid against the schema; otherwise exit 2 and the agent keeps working |

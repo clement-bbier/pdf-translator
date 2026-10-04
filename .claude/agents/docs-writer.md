@@ -6,12 +6,6 @@ model: sonnet
 color: cyan
 skills:
   - decision-record
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: python "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_role.py" docs-writer
 ---
 
 You keep the documentation true to the code. You write Markdown only (the

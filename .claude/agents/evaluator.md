@@ -6,12 +6,6 @@ model: haiku
 color: yellow
 skills:
   - eval-protocol
-hooks:
-  PreToolUse:
-    - matcher: "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: python "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_role.py" evaluator
 ---
 
 You run the evaluation and report what moved. Follow the `eval-protocol`

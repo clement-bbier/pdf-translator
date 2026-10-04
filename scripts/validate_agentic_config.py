@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CLAUDE_DIR = ROOT / ".claude"
 sys.path.insert(0, str(CLAUDE_DIR / "hooks"))
 
+from guard_role import RESTRICTED_ROLES  # noqa: E402
 from handoff import AGENT_NAMES, SCHEMA_PATH, json_schema  # noqa: E402
 
 KNOWN_TOOLS = {
@@ -131,21 +132,16 @@ def check_agents(errors: list[str]) -> tuple[set[str], set[str]]:
             errors.append(f"{where}: model {model!r} is not an alias or a claude-* id")
 
         hooks = meta.get("hooks") or {}
-        commands = _commands(hooks) if isinstance(hooks, dict) else []
-        scripts |= _hook_scripts(commands)
-        guard_args = [
-            arg
-            for command in commands
-            for arg in re.findall(r"guard_role\.py\"?\s+([\w-]+)", command)
-        ]
+        if hooks:
+            # Frontmatter hooks of project agents are skipped until the workspace
+            # trust dialog is accepted (never in `claude -p`): wire them in settings.
+            errors.append(f"{where}: define hooks in settings.json, not in agent frontmatter")
+            scripts |= _hook_scripts(_commands(hooks)) if isinstance(hooks, dict) else set()
 
-        if name in READ_ONLY_ROLES:
-            if WRITE_TOOLS & set(tools):
-                errors.append(f"{where}: read-only role must not have {WRITE_TOOLS & set(tools)}")
-            if name not in guard_args:
-                errors.append(f"{where}: read-only role needs the guard_role.py {name} hook")
-        if name == "docs-writer" and "docs-writer" not in guard_args:
-            errors.append(f"{where}: docs-writer needs the guard_role.py docs-writer hook")
+        if name in READ_ONLY_ROLES and WRITE_TOOLS & set(tools):
+            errors.append(f"{where}: read-only role must not have {WRITE_TOOLS & set(tools)}")
+        if name in READ_ONLY_ROLES | {"docs-writer"} and name not in RESTRICTED_ROLES:
+            errors.append(f"{where}: guard_role.py has no rules for {name}")
         if name == "implementer" and meta.get("isolation") != "worktree":
             errors.append(f"{where}: implementer must run with isolation: worktree")
         if meta.get("isolation") not in (None, "worktree"):
@@ -226,6 +222,15 @@ def check_settings(errors: list[str], agent_scripts: set[str]) -> None:
     on_disk = {path.stem for path in hooks_dir.glob("*.py")} - HOOK_LIBRARIES
     for script in sorted(on_disk - settings_scripts - agent_scripts - {"secret_scan"}):
         errors.append(f"hook script {script}.py is not wired to any event (decorative)")
+    role_matchers = " ".join(
+        group.get("matcher", "")
+        for group in hooks.get("PreToolUse", [])
+        if "guard_role.py" in json.dumps(group)
+    )
+    if not {"Bash", "Write", "Edit"} <= set(role_matchers.split("|")):
+        errors.append(
+            "settings.json: guard_role.py must run on PreToolUse for Bash, Write and Edit"
+        )
     if "secret_scan" not in settings_scripts:
         errors.append("settings.json: secret_scan.py must run before commits (PreToolUse Bash)")
 

@@ -571,8 +571,22 @@ def test_validate_handoff_prefers_the_agents_own_worktree() -> None:
 
 
 def _role(role: str, tool: str, tool_input: dict) -> int:
+    """Run guard_role.py as wired in settings.json: the role comes from agent_type."""
     event = {"tool_name": tool, "tool_input": tool_input, "cwd": str(ROOT)}
-    return run_hook("guard_role.py", event, args=(role,)).returncode
+    if role:
+        event["agent_type"] = role
+    return run_hook("guard_role.py", event).returncode
+
+
+def test_guard_role_leaves_unrestricted_callers_alone() -> None:
+    """Main session, implementer and built-in agents are not restricted by this hook."""
+    code = {"file_path": str(ROOT / "app/main.py")}
+    check(_role("", "Edit", code) == ALLOW, "main session may edit code")
+    check(_role("implementer", "Edit", code) == ALLOW, "implementer may edit code")
+    check(_role("general-purpose", "Bash", {"command": "make format"}) == ALLOW, "built-in agent")
+    check(
+        _role("implementer", "Bash", {"command": "git commit -m x"}) == ALLOW, "implementer commits"
+    )
 
 
 def test_guard_role_read_only_roles() -> None:
@@ -687,6 +701,7 @@ def main() -> int:
         test_validate_handoff_role_rules_and_naming,
         test_validate_handoff_ignores_other_agents_and_gives_up_eventually,
         test_validate_handoff_prefers_the_agents_own_worktree,
+        test_guard_role_leaves_unrestricted_callers_alone,
         test_guard_role_read_only_roles,
         test_guard_role_docs_writer,
         test_session_context_reports_status,

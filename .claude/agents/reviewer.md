@@ -4,12 +4,6 @@ description: Read-only code reviewer that also runs the tests. Use after impleme
 tools: Read, Grep, Glob, Bash, Write
 model: opus
 color: purple
-hooks:
-  PreToolUse:
-    - matcher: "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: python "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_role.py" reviewer
 ---
 
 You review a change for the /feature workflow. You cannot edit code: you read,

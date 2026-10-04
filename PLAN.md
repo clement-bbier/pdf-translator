@@ -10,7 +10,7 @@ Checked on 2026-10-04 against Claude Code 2.1.288 and code.claude.com/docs
 | Topic | Verified fact | Consequence here |
 | --- | --- | --- |
 | Subagents | `.claude/agents/*.md`, YAML frontmatter: `name`, `description` (drives delegation), `tools` (comma list), `model` (`opus`/`sonnet`/`haiku`/full id/`inherit`), `isolation: worktree`, `skills` (preloaded), `hooks` (agent-scoped), `color`, `maxTurns` | One file per agent, explicit tool lists, implementer uses `isolation: worktree` |
-| Subagent hooks | Settings hooks fire inside subagents; tool events carry `agent_id`/`agent_type`; frontmatter `hooks` are scoped to that agent | Role guards declared per agent |
+| Subagent hooks | Settings hooks fire inside subagents; tool events carry `agent_id`/`agent_type`. Frontmatter `hooks` of project agents run only after the workspace trust dialog is accepted, never in `claude -p` | Role guard wired in settings.json, role read from `agent_type` |
 | Worktree isolation | Worktree under `.claude/worktrees/<name>/` on branch `worktree-<name>`; base is the remote default branch unless `worktree.baseRef: "head"`; edits/commands targeting the main checkout are blocked; kept on disk when it has commits | `baseRef: head`; implementers write their handoff inside their worktree |
 | Hook events | `SessionStart` (matchers startup/resume/clear/compact), `PreToolUse`, `PostToolUse`, `SubagentStart`, `SubagentStop` (input: `agent_id`, `agent_type`, `agent_transcript_path`, `stop_hook_active`, `last_assistant_message`, `cwd`) | Five events wired |
 | Exit codes | 0 proceed (stdout JSON parsed); 2 = PreToolUse blocks the call, PostToolUse shows stderr to Claude, SubagentStop prevents the subagent from stopping; other = non-blocking error | Guards and validators exit 2 with the reason on stderr |
@@ -29,7 +29,7 @@ Checked on 2026-10-04 against Claude Code 2.1.288 and code.claude.com/docs
 - [x] `.claude/schemas/handoff.schema.json` exported from the Pydantic model
 - [x] `evaluation/`: layout suite + committed baseline + comparison (gives /eval and the evaluator real work before the translation suite exists)
 - [x] `scripts/validate_agentic_config.py`, `scripts/run_tests.py`, `scripts/install_git_hooks.py`, `Makefile`
-- [x] `tests/test_hooks.py` (22 tests, every hook), `tests/test_agentic_config.py` (validator mutation tests)
+- [x] `tests/test_hooks.py` (23 tests, every hook), `tests/test_agentic_config.py` (validator mutation tests)
 - [x] CI: lint, validate, secret scan, tests, eval
 - [x] `docs/agentic-development.md`
 - [ ] Demonstration: `/feature` adds `--version` to the CLI, end to end, in a headless session

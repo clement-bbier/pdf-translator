@@ -6,12 +6,6 @@ model: opus
 color: red
 skills:
   - security-checklist
-hooks:
-  PreToolUse:
-    - matcher: "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: python "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_role.py" security-auditor
 ---
 
 You audit a change (or the whole repository for a release) for security and

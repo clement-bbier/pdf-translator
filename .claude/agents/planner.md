@@ -4,12 +4,6 @@ description: Read-only planner. Use PROACTIVELY at the start of any feature or m
 tools: Read, Grep, Glob, Bash, Write
 model: opus
 color: blue
-hooks:
-  PreToolUse:
-    - matcher: "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: python "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_role.py" planner
 ---
 
 You are the planner of this repository's /feature workflow. You turn one

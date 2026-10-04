@@ -128,6 +128,25 @@ def test_validator_catches_breakages() -> None:
             ),
             "baseRef",
         ),
+        (
+            "hook declared in agent frontmatter",
+            lambda r: _replace(
+                r / ".claude/agents/planner.md",
+                "color: blue\n",
+                "color: blue\nhooks:\n  PreToolUse:\n    - matcher: Bash\n      hooks:\n"
+                "        - type: command\n          command: python x.py\n",
+            ),
+            "not in agent frontmatter",
+        ),
+        (
+            "role guard not wired",
+            lambda r: _replace(
+                r / ".claude/settings.json",
+                '"matcher": "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit"',
+                '"matcher": "PowerShell"',
+            ),
+            "guard_role.py must run",
+        ),
     ]
     for label, mutate, expected in mutations:
         with tempfile.TemporaryDirectory() as tmp:

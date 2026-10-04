@@ -1,7 +1,14 @@
-"""Agent-scoped PreToolUse hook: keep each workflow role inside its remit.
+"""PreToolUse hook: keep each workflow role inside its remit.
 
-Declared in the frontmatter of the agents it applies to, with the role as
-argument: ``python guard_role.py <role>``.
+Wired in settings.json for Bash/PowerShell/Write/Edit. Tool calls made inside
+a subagent carry ``agent_type`` in the hook input; the role is read from
+there (an explicit ``python guard_role.py <role>`` argument overrides it, for
+tests). Calls from the main session or from roles without restrictions
+(implementer, built-in agents) pass through.
+
+Why settings and not agent frontmatter: frontmatter hooks of project agents
+only run once the workspace trust dialog has been accepted, and a headless
+``claude -p`` run never accepts it. Settings hooks always run.
 
 - Write/Edit: read-only roles (planner, reviewer, evaluator, security-auditor)
   may only write their handoff under ``.claude/handoffs/``; docs-writer may
@@ -95,7 +102,8 @@ def check_bash(role: str, command: str) -> str | None:
             for prefix in allowed
         ):
             return (
-                f"{role} may only run: {', '.join(allowed)} (plus read-only filters). "
+                f"{role} may only run: {', '.join(allowed)} (plus read-only filters); "
+                "read files with the Read/Grep/Glob tools. "
                 f"Refused: {normalized[:120]!r}"
             )
     return None
@@ -112,9 +120,14 @@ def check_write(role: str, path_str: str, event: dict) -> str | None:
     return f"{role} is read-only: it may only write its handoff under .claude/handoffs/"
 
 
+RESTRICTED_ROLES = set(BASH_ALLOWLIST) | {"docs-writer"}
+
+
 def main(argv: list[str]) -> int:
-    role = argv[0] if argv else ""
     event = read_input()
+    role = argv[0] if argv else str(event.get("agent_type") or "")
+    if role not in RESTRICTED_ROLES:
+        return ALLOW
     tool = str(event.get("tool_name") or "")
     tool_input = event.get("tool_input") or {}
 
