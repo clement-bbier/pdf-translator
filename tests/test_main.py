@@ -6,6 +6,7 @@ Run: python tests/test_main.py
 from __future__ import annotations
 
 import io
+import os
 import sys
 import threading
 import time
@@ -460,6 +461,9 @@ def _cleanup() -> None:
 def main() -> int:
     """Run every test_* function in this module."""
     app_config.force_utf8_stdout()
+    # A developer's .env must not turn these tests into 401s or another provider.
+    os.environ.pop("APP_PASSWORD", None)
+    os.environ.pop("APP_PROVIDER", None)
     make_fixtures.main([])
 
     tests = [
