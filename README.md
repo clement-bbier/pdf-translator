@@ -149,7 +149,7 @@ make docker-up                # or: docker compose up --build
 - `APP_PROVIDER` overrides `provider` from `config.yaml` (for example `mock`).
 - The compose file publishes the port on `127.0.0.1` only and runs a
   read-only, capability-dropped container with one uvicorn worker (jobs are
-  kept in memory). Rationale: [decision 0002](docs/decisions/0002-container-and-access-guard.md).
+  kept in memory). Rationale: [decision 0002](docs/decisions/0008-container-and-access-guard.md).
 
 ## Authentication
 
@@ -395,11 +395,11 @@ Two optional retrieval sources add context to the translation prompt
   `source,target_fr,target_en,domain`). Terms found in a batch by exact,
   longest-match-first search are injected as required renderings. Applies to
   source language `zh` and targets `fr`/`en`. Rationale:
-  [decision 0002](docs/decisions/0002-exact-glossary-search.md).
+  [decision 0002](docs/decisions/0005-exact-glossary-search.md).
 - **Translation memory** — validated Chinese/English pairs
   (`data/tm/seed_zh_en.jsonl`) similar to the text are injected as examples,
   ranked by cosine similarity of local hashing embeddings. Rationale:
-  [decision 0003](docs/decisions/0003-hashing-embedder-for-translation-memory.md).
+  [decision 0003](docs/decisions/0006-hashing-embedder-for-translation-memory.md).
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -426,7 +426,7 @@ Limitations:
 
 LLM-backed translators (not `mock`) have each batch answer checked by
 deterministic code in `app/verification/` (no second model; rationale in
-[docs/decisions/0002](docs/decisions/0002-deterministic-verification-retry-then-flag.md)):
+[docs/decisions/0002](docs/decisions/0007-deterministic-verification-retry-then-flag.md)):
 
 | Check | Fails when |
 | --- | --- |
@@ -494,9 +494,9 @@ partial dataset must not become the baseline. The translation memory is read
 from `data/tm/seed_zh_en.jsonl` by default.
 
 Latest published report: [docs/evaluation-report.md](docs/evaluation-report.md).
-Design notes: [metrics](docs/decisions/0002-translation-metrics-stdlib.md),
-[runs and tolerance](docs/decisions/0003-evaluation-runs-and-tolerance.md),
-[dataset provenance](docs/decisions/0004-evaluation-dataset-provenance.md).
+Design notes: [metrics](docs/decisions/0009-translation-metrics-stdlib.md),
+[runs and tolerance](docs/decisions/0010-evaluation-runs-and-tolerance.md),
+[dataset provenance](docs/decisions/0011-evaluation-dataset-provenance.md).
 
 ## Known limitations
 

@@ -1,4 +1,4 @@
-# 0002. Translation metrics use the standard library only
+# 0009. Translation metrics use the standard library only
 
 - Status: Accepted
 - Date: 2026-10-04

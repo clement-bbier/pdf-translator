@@ -1,4 +1,4 @@
-# 0003. Translation memory uses a local hashing embedder by default
+# 0006. Translation memory uses a local hashing embedder by default
 
 - Status: Accepted
 - Date: 2026-10-04

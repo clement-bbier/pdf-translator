@@ -1,4 +1,4 @@
-# 0002. The glossary uses exact longest-match search
+# 0005. The glossary uses exact longest-match search
 
 - Status: Accepted
 - Date: 2026-10-04

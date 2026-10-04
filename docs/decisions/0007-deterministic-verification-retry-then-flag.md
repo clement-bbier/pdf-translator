@@ -1,4 +1,4 @@
-# 0002. Verify translations with deterministic code checks, retry once, then flag
+# 0007. Verify translations with deterministic code checks, retry once, then flag
 
 - Status: Accepted
 - Date: 2026-10-04

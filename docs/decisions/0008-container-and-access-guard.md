@@ -1,4 +1,4 @@
-# 0002. Ship a hardened container with a hashed lock file and an optional Basic guard
+# 0008. Ship a hardened container with a hashed lock file and an optional Basic guard
 
 - Status: Accepted
 - Date: 2026-10-04

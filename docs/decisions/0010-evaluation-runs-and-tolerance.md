@@ -1,4 +1,4 @@
-# 0003. Three runs, mean and standard deviation, per-model tolerance
+# 0010. Three runs, mean and standard deviation, per-model tolerance
 
 - Status: Accepted
 - Date: 2026-10-04
