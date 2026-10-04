@@ -88,11 +88,12 @@ _CJK_NUMERAL = (
 )
 _ISO = r"(?<![\d/.\-])(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?!\d)"
 _DMY = r"(?<![\d/.\-])(\d{1,2})([/.])(\d{1,2})\2(\d{4})(?![\d/.])"
+_NOT_AFTER = r"(?<![0-9A-Za-zÀ-ɏ_])"  # Latin word boundary: CJK text may touch a date
 _DAY_FIRST = (
-    r"(?<!\w)(?:(\d{1,2})(?:st|nd|rd|th|er)?\s+(?:of\s+|de\s+)?)?"
-    r"([^\W\d_]{3,9})\.?\s+(\d{4})(?!\d)"
+    _NOT_AFTER + r"(?:(\d{1,2})(?:st|nd|rd|th|er)?\s+(?:of\s+|de\s+)?)?"
+    r"([A-Za-zÀ-ɏ]{3,9})\.?\s+(\d{4})(?!\d)"
 )
-_MONTH_FIRST = r"(?<!\w)([^\W\d_]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)"
+_MONTH_FIRST = _NOT_AFTER + r"([A-Za-zÀ-ɏ]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)"
 
 _RE_CJK_ARABIC = re.compile(_CJK_ARABIC)
 _RE_CJK_NUMERAL = re.compile(_CJK_NUMERAL)

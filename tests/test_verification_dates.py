@@ -64,6 +64,9 @@ def test_find_dates() -> None:
     check(ymd("5 août 2024") == [(2024, 8, 5)], "french août")
     check(ymd("3 decembre 2024") == [(2024, 12, 3)], "french decembre")
     check(ymd("see 5 days 2024") == [], "non month word ignored")
+    check(ymd("合同于1 December 2024生效") == [(2024, 12, 1)], "date glued to CJK text")
+    check(ymd("于March 12, 2024生效") == [(2024, 3, 12)], "month-first glued to CJK text")
+    check(ymd("xx12 March 2024") == [(2024, 3, None)], "Latin glue still cuts the day")
 
 
 def test_check_dates_pass() -> None:
