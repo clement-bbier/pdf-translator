@@ -330,7 +330,10 @@ def run_job(
     job_output_dir.mkdir(parents=True, exist_ok=True)
 
     translator = get_translator(config)
-    cache = TranslationCache()
+    cache = TranslationCache(
+        model=getattr(translator, "model", None) or "",
+        prompt_version=getattr(translator, "prompt_version", None) or "",
+    )
 
     result = JobResult(job_id=job_id)
     total = len(files)
