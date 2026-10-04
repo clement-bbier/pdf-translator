@@ -63,7 +63,7 @@ lock:
 	$(PYTHON) -m uv pip compile requirements.txt --generate-hashes --python-version 3.12 --python-platform x86_64-unknown-linux-gnu -o requirements.lock
 
 docker-build:
-	docker build -t pdf-translator:local .
+	docker build --load -t pdf-translator:local .
 
 docker-up:
 	docker compose up --build

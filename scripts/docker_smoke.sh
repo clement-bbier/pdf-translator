@@ -11,7 +11,9 @@ FIXTURE="tests/fixtures/simple.pdf"
 WORK="$(mktemp -d)"
 
 APP_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
-echo "::add-mask::${APP_PASSWORD}"
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+  echo "::add-mask::${APP_PASSWORD}"
+fi
 export APP_PASSWORD
 
 cleanup() {

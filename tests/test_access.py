@@ -5,6 +5,7 @@ Run: python tests/test_access.py
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import os
@@ -151,6 +152,38 @@ def test_protected() -> None:
         check(client.get("/", headers=basic("u", "x")).status_code == 401, "non-ASCII wrong")
 
 
+def test_websocket_guard() -> None:
+    sent: list[dict] = []
+    reached: list[bool] = []
+
+    async def inner(scope, receive, send) -> None:
+        reached.append(True)
+
+    async def receive() -> dict:
+        return {"type": "websocket.connect"}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    guard = access.AccessGuardMiddleware(inner)
+    scope = {"type": "websocket", "path": "/ws", "headers": []}
+    with env(access.PASSWORD_ENV, "ws-secret"):
+        asyncio.run(guard(scope, receive, send))
+        check(not reached, "unauthenticated websocket not forwarded")
+        check(
+            sent == [{"type": "websocket.close", "code": 1008}],
+            "unauthenticated websocket closed with 1008",
+        )
+        auth = basic("u", "ws-secret")["Authorization"].encode("latin-1")
+        authed = {**scope, "headers": [(b"authorization", auth)]}
+        asyncio.run(guard(authed, receive, send))
+        check(reached == [True], "authenticated websocket forwarded")
+    reached.clear()
+    with env(access.PASSWORD_ENV, None):
+        asyncio.run(guard(scope, receive, send))
+        check(reached == [True], "websocket open when unprotected")
+
+
 def test_startup_logs() -> None:
     records = _startup_records(None)
     warnings = [
@@ -202,9 +235,12 @@ def test_provider_override() -> None:
 def main() -> int:
     """Run every test in this module."""
     app_config.force_utf8_stdout()
+    os.environ.pop(access.PASSWORD_ENV, None)
+    os.environ.pop(app_config.PROVIDER_ENV, None)
     for test in (
         test_unprotected,
         test_protected,
+        test_websocket_guard,
         test_startup_logs,
         test_check_basic_auth,
         test_provider_override,

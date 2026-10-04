@@ -53,7 +53,7 @@ class AccessGuardMiddleware:
         self.app = app
 
     async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
-        if scope["type"] != "http" or scope.get("path") == HEALTH_PATH:
+        if scope["type"] not in ("http", "websocket") or scope.get("path") == HEALTH_PATH:
             await self.app(scope, receive, send)
             return
         password = configured_password()
@@ -68,6 +68,11 @@ class AccessGuardMiddleware:
                 break
         if check_basic_auth(header, password):
             await self.app(scope, receive, send)
+            return
+
+        if scope["type"] == "websocket":
+            # Reject before accept (policy violation); servers answer HTTP 403.
+            await send({"type": "websocket.close", "code": 1008})
             return
 
         body = json.dumps({"detail": "Authentication required."}).encode("utf-8")

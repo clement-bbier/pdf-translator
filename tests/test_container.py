@@ -173,6 +173,7 @@ def test_makefile_targets() -> None:
     for target in ("lock", "docker-build", "docker-up"):
         check(re.search(rf"^{target}:", text, flags=re.MULTILINE) is not None, f"target {target}")
         check(target in text.split("help:")[0], f"{target} not in .PHONY")
+    check("docker build --load -t pdf-translator:local" in text, "docker-build uses --load")
 
 
 def main() -> int:
