@@ -164,7 +164,9 @@ def test_stats_model_and_prompt_version() -> None:
     job_dirs: list[Path] = []
     try:
         with tempfile.TemporaryDirectory() as tmp:
-            pipeline_module.TranslationCache = lambda: original_cache_cls(Path(tmp) / "c.json")  # type: ignore[assignment]
+            pipeline_module.TranslationCache = lambda **scope: original_cache_cls(  # type: ignore[assignment]
+                Path(tmp) / "c.json", **scope
+            )
             fake_config = _isolated(dict(app_config.load_config()), tmp)
             fake_config["provider"] = "fake"
             fake_result = pipeline_module.run_job([fixture], "zh", "fr", fake_config)
