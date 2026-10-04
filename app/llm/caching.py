@@ -58,6 +58,14 @@ class CachedProvider:
         except OSError as error:
             logger.warning("llm cache: failed to persist (%s)", type(error).__name__)
 
+    def invalidate(self, request: LLMRequest) -> None:
+        """Drop the cached entry of ``request`` (e.g. a response the caller rejected)."""
+        key = request_fingerprint(request)
+        with self._lock:
+            data = self._load()
+            if data.pop(key, None) is not None:
+                self._save(data)
+
     def complete(self, request: LLMRequest) -> LLMResponse:
         """Return the cached response or call the inner provider and store its answer."""
         key = request_fingerprint(request)

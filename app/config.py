@@ -82,7 +82,11 @@ class VerificationSettings(_Strict):
 
 
 class TracingSettings(_Strict):
-    """JSONL trace of every LLM call (ids and counters only)."""
+    """JSONL trace of every LLM call.
+
+    Stores ids, counters, cost and the model output (translated text). Local
+    only and gitignored; input messages are not stored.
+    """
 
     enabled: bool = True
     path: str = "traces/llm-calls.jsonl"

@@ -45,6 +45,12 @@ class TracingProvider:
         self._write(self._record(request, response, duration_ms, None))
         return response
 
+    def invalidate(self, request: LLMRequest) -> None:
+        """Forward to the inner provider when it supports invalidation."""
+        inner_invalidate = getattr(self._inner, "invalidate", None)
+        if inner_invalidate is not None:
+            inner_invalidate(request)
+
     def _cost(self, response: LLMResponse | None) -> float | None:
         if response is None:
             return None

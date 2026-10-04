@@ -37,25 +37,33 @@ class LLMTranslator:
             prompt_version=self.prompt_version,
         )
 
+    def _invalidate(self, request: LLMRequest) -> None:
+        """Ask a caching provider to forget a response we rejected."""
+        invalidate = getattr(self._provider, "invalidate", None)
+        if invalidate is not None:
+            invalidate(request)
+
     def translate_blocks(self, blocks: list[str], src: str, tgt: str) -> list[str]:
         """Translate a batch of blocks in one call; raises TranslationError on failure."""
         if not blocks:
             return []
 
         payload_map = {str(index): text for index, text in enumerate(blocks)}
-        response = self._provider.complete(
-            self._request(self._prompts.blocks_messages(payload_map, src, tgt))
-        )
+        request = self._request(self._prompts.blocks_messages(payload_map, src, tgt))
+        response = self._provider.complete(request)
 
         try:
             parsed = json.loads(response.text)
         except ValueError as error:
+            self._invalidate(request)
             raise TranslationError(f"malformed model response: {error}") from error
         if not isinstance(parsed, dict):
+            self._invalidate(request)
             raise TranslationError("model response JSON is not an object")
 
         missing = [key for key in payload_map if key not in parsed]
         if missing:
+            self._invalidate(request)
             raise TranslationError(
                 f"model response missing {len(missing)} of {len(payload_map)} keys"
             )

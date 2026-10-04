@@ -6,6 +6,7 @@ No network access. Run: python tests/test_llm_cache.py
 from __future__ import annotations
 
 import dataclasses
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -18,6 +19,10 @@ from app import config as app_config  # noqa: E402
 from app.cache import TranslationCache  # noqa: E402
 from app.llm.base import LLMRequest, LLMResponse  # noqa: E402
 from app.llm.caching import CachedProvider  # noqa: E402
+from app.llm.errors import TranslationError  # noqa: E402
+from app.llm.factory import build_provider  # noqa: E402
+from app.llm.fake_provider import FakeProvider  # noqa: E402
+from app.llm.translator import LLMTranslator  # noqa: E402
 
 FAILURES: list[str] = []
 
@@ -147,6 +152,61 @@ def test_translation_cache_scoping() -> None:
             "default cache round-trips",
         )
         check(len(default) == 1, "len unchanged")
+
+
+class CountingFake:
+    """Wraps a FakeProvider and counts inner calls."""
+
+    def __init__(self, **kwargs: bool) -> None:
+        self.calls = 0
+        self._fake = FakeProvider(**kwargs)
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        self.calls += 1
+        return self._fake.complete(request)
+
+
+def test_rejected_response_is_invalidated() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "c.json"
+        bad = CountingFake(invalid_json=True)
+        translator = LLMTranslator(CachedProvider(bad, path), model="fake-model")
+        for _ in range(2):
+            try:
+                translator.translate_blocks(["hello"], "en", "fr")
+                check(False, "invalid JSON must raise TranslationError")
+            except TranslationError:
+                pass
+        check(bad.calls == 2, "rejected response must not stay cached")
+
+        good = CountingFake()
+        translator = LLMTranslator(CachedProvider(good, path), model="fake-model")
+        first = translator.translate_blocks(["hello"], "en", "fr")
+        second = translator.translate_blocks(["hello"], "en", "fr")
+        check(good.calls == 1 and first == second, "valid response still hits the cache")
+
+
+def test_wrapper_order_trace_and_cache() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        trace = Path(tmp) / "trace.jsonl"
+        config = {
+            "cache": {"enabled": True, "path": str(Path(tmp) / "c.json")},
+            "tracing": {"enabled": True, "path": str(trace)},
+        }
+        provider = build_provider("fake", config)
+        request = _request()
+        provider.complete(request)
+        provider.complete(request)
+        lines = [json.loads(x) for x in trace.read_text(encoding="utf-8").splitlines()]
+        check(len(lines) == 2, "two trace lines")
+        check(
+            lines[0]["cache_hit"] is False and lines[0]["estimated_cost_usd"] is None,
+            "first call: miss, unpriced model has null cost",
+        )
+        check(
+            lines[1]["cache_hit"] is True and lines[1]["estimated_cost_usd"] == 0.0,
+            "second call: hit, zero cost",
+        )
 
 
 def main() -> int:

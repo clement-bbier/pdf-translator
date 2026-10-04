@@ -42,7 +42,8 @@ rag: {glossary: false, glossary_path: data/glossary.csv, translation_memory: fal
 # Output verification: Phase 2, no-op for now.
 verification: {enabled: false, max_retries: 1}
 
-# One JSONL line per LLM call (ids and counters only, never document text).
+# One JSONL line per LLM call: ids, counters, cost and the model output (translated
+# text). Local only, gitignored; input messages are not stored.
 tracing: {enabled: true, path: traces/llm-calls.jsonl}
 
 # Request-level LLM response cache.
