@@ -11,6 +11,7 @@ from app.llm.errors import TranslationError
 from app.llm.fake_provider import FakeProvider
 from app.llm.gateway_provider import GatewayProvider
 from app.llm.translator import LLMTranslator
+from app.rag.context import RagContext, build_rag_context
 
 __all__ = [
     "GatewayTranslator",
@@ -95,11 +96,13 @@ class GatewayTranslator(LLMTranslator):
         *,
         timeout: float = 60.0,
         temperature: float | None = None,
+        context_provider: RagContext | None = None,
     ) -> None:
         super().__init__(
             GatewayProvider(base_url, timeout=timeout),
             model=model,
             temperature=temperature,
+            context_provider=context_provider,
         )
 
 
@@ -109,19 +112,26 @@ def get_translator(config: dict[str, Any]) -> Translator:
     if provider == "mock":
         return MockTranslator()
     if provider == "fake":
-        return LLMTranslator(FakeProvider(), model=FakeProvider.MODEL_ID)
+        return LLMTranslator(
+            FakeProvider(), model=FakeProvider.MODEL_ID, context_provider=build_rag_context(config)
+        )
     if provider == "anthropic":
         llm = config.get("llm", {})
         return LLMTranslator(
             AnthropicProvider(),
             model=llm.get("model", "claude-haiku-4-5-20251001"),
             temperature=llm.get("temperature", 0),
+            context_provider=build_rag_context(config),
         )
     if provider == "gateway":
         base_url = os.environ.get("GATEWAY_BASE_URL")
         if not base_url:
             raise TranslationError("GATEWAY_BASE_URL is not set")
-        return GatewayTranslator(base_url=base_url, model=config.get("model", ""))
+        return GatewayTranslator(
+            base_url=base_url,
+            model=config.get("model", ""),
+            context_provider=build_rag_context(config),
+        )
     raise ValueError(f"unknown translator provider: {provider!r}")
 
 

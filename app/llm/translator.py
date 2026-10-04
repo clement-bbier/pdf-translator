@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from app.llm.base import LLMProvider, LLMRequest
 from app.llm.errors import TranslationError
 from app.llm.prompts import blocks_messages, page_image_messages
+
+if TYPE_CHECKING:
+    from app.rag.context import RagContext
 
 
 class LLMTranslator:
@@ -20,8 +24,10 @@ class LLMTranslator:
         temperature: float | None = None,
         max_tokens: int = 4096,
         prompt_version: str = "v1",
+        context_provider: RagContext | None = None,
     ) -> None:
         self._provider = provider
+        self._context_provider = context_provider
         self.model = model
         self._temperature = temperature
         self._max_tokens = max_tokens
@@ -42,7 +48,15 @@ class LLMTranslator:
             return []
 
         payload_map = {str(index): text for index, text in enumerate(blocks)}
-        response = self._provider.complete(self._request(blocks_messages(payload_map, src, tgt)))
+        context_text = ""
+        context_sources: dict[str, int] = {}
+        if self._context_provider is not None:
+            rendered = self._context_provider.render(blocks, src, tgt)
+            context_text = rendered.text
+            context_sources = dict(rendered.sources)
+        request = self._request(blocks_messages(payload_map, src, tgt, context_text))
+        request.context_sources = context_sources
+        response = self._provider.complete(request)
 
         try:
             parsed = json.loads(response.text)

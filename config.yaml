@@ -33,3 +33,14 @@ font_min_scale: 0.6
 languages:
   source: [zh, ja, ko, en, fr]
   target: [fr, en]
+
+# Retrieval-augmented translation (validated by app/rag/settings.py).
+rag:
+  glossary: true                                 # inject matching glossary terms into the prompt
+  glossary_path: data/glossary/finance_zh.csv    # Traditional Chinese terms (HK filings); Simplified text does not match
+  translation_memory: false                      # off by default: inject similar validated translations
+  tm_path: data/tm/seed_zh_en.jsonl              # translation memory records (JSONL)
+  tm_top_k: 3                                    # max examples injected per batch (1..20)
+  tm_min_score: 0.3                              # minimum cosine similarity to keep an example (-1..1)
+  embedder: hashing                              # hashing (local, no network) | gateway (embeddings endpoint)
+  embedding_model: text-embedding-3-small        # model used when embedder is gateway
