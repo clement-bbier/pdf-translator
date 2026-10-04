@@ -12,6 +12,7 @@ from app.llm.fake_provider import FakeProvider
 from app.llm.gateway_provider import GatewayProvider
 from app.llm.prompts import PromptBuilder
 from app.llm.translator import LLMTranslator
+from app.rag.context import build_rag_context
 
 __all__ = [
     "GatewayTranslator",
@@ -126,6 +127,7 @@ def get_translator(config: dict[str, Any]) -> Translator:
         temperature=llm.temperature,
         max_tokens=llm.max_tokens,
         prompt_builder=PromptBuilder(llm.prompt_version),
+        context_provider=build_rag_context(config),
     )
 
 

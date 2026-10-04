@@ -49,21 +49,27 @@ class PromptBuilder:
         self.version = version
         self._context_providers = tuple(context_providers)
 
-    def _context(self, segments: list[str], src: str, tgt: str) -> str:
+    def _context(self, segments: list[str], src: str, tgt: str, extra: str = "") -> str:
         parts = [provider.context_for(segments, src, tgt) for provider in self._context_providers]
-        joined = "\n\n".join(part for part in parts if part)
+        joined = "\n\n".join(part for part in [*parts, extra] if part)
         return f"{joined}\n\n" if joined else ""
 
     def blocks_messages(
-        self, payload_map: dict[str, str], src: str, tgt: str
+        self, payload_map: dict[str, str], src: str, tgt: str, extra_context: str = ""
     ) -> list[dict[str, Any]]:
-        """System + user messages for a batch of text blocks."""
+        """System + user messages for a batch of text blocks.
+
+        ``extra_context`` is context the caller already rendered (the RAG block,
+        which LLMTranslator renders once per batch to also record its sources);
+        it follows the builder's own providers. Empty context leaves the prompt
+        byte-identical to the context-free one.
+        """
         user = _render(
             load_prompt(self.version, "translate_blocks.user"),
             {
                 "src": src,
                 "tgt": tgt,
-                "context": self._context(list(payload_map.values()), src, tgt),
+                "context": self._context(list(payload_map.values()), src, tgt, extra_context),
                 "payload": json.dumps(payload_map, ensure_ascii=False),
             },
         )

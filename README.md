@@ -324,11 +324,10 @@ llm:
 - Prompts are versioned files under `prompts/<prompt_version>/`. Changing
   `prompt_version` also changes cache keys.
 
-### Phase 2 switches (no-ops)
+### `rag` and `verification`
 
-`rag` (`glossary`, `translation_memory`, paths, `tm_top_k`) and
-`verification` (`enabled`, `max_retries`) are validated but not wired to
-anything yet. Setting them to `true` changes no behaviour.
+`rag` is described in [Terminology and translation memory](#terminology-and-translation-memory).
+`verification` (`enabled`, `max_retries`) is validated but not wired yet.
 
 ### `tracing` and `cache`
 
@@ -367,6 +366,42 @@ delete the files (stop the app first):
 ```powershell
 Remove-Item traces\llm-calls.jsonl, tmp\llm-cache.json, tmp\cache.json -ErrorAction SilentlyContinue
 ```
+
+## Terminology and translation memory
+
+Two optional retrieval sources add context to the translation prompt
+(`app/rag/`). Both are configured in the `rag:` block of `config.yaml`.
+
+- **Glossary** — 59 finance terms (`data/glossary/finance_zh.csv`, columns
+  `source,target_fr,target_en,domain`). Terms found in a batch by exact,
+  longest-match-first search are injected as required renderings. Applies to
+  source language `zh` and targets `fr`/`en`. Rationale:
+  [decision 0002](docs/decisions/0002-exact-glossary-search.md).
+- **Translation memory** — validated Chinese/English pairs
+  (`data/tm/seed_zh_en.jsonl`) similar to the text are injected as examples,
+  ranked by cosine similarity of local hashing embeddings. Rationale:
+  [decision 0003](docs/decisions/0003-hashing-embedder-for-translation-memory.md).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `rag.glossary` | `true` | Enable the glossary |
+| `rag.glossary_path` | `data/glossary/finance_zh.csv` | Glossary CSV |
+| `rag.translation_memory` | `false` | Enable the translation memory |
+| `rag.tm_path` | `data/tm/seed_zh_en.jsonl` | Translation memory records (JSONL) |
+| `rag.tm_top_k` | `3` | Max examples injected per batch (1..20) |
+| `rag.tm_min_score` | `0.3` | Minimum cosine similarity to keep an example (-1..1); a starting value |
+| `rag.embedder` | `hashing` | `hashing` (local, stdlib) or `gateway` (embeddings endpoint) |
+| `rag.embedding_model` | `text-embedding-3-small` | Model used when `embedder` is `gateway` |
+
+Limitations:
+
+- The glossary sources are Traditional Chinese (Hong Kong usage); Simplified
+  Chinese text does not match.
+- The hashing embedder matches shared characters only: no paraphrase, no
+  cross-script matching. The seed memory is zh to en only.
+- With `rag.embedder: gateway`, segment text is sent to the gateway
+  `/embeddings` endpoint whatever translation provider is selected.
+- Provenance of the data files: [`data/SOURCES.md`](data/SOURCES.md).
 
 ## Known limitations
 

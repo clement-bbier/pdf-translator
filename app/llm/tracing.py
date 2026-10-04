@@ -78,6 +78,8 @@ class TracingProvider:
             "prompt_version": request.prompt_version,
             "model": response.model if response is not None else request.model,
             "params": {"temperature": request.temperature, "max_tokens": request.max_tokens},
+            # Which RAG providers contributed, with counts; never their content.
+            "context_sources": dict(request.context_sources),
             "output": response.text if response is not None else None,
             "duration_ms": duration_ms,
             "input_tokens": response.input_tokens if response is not None else 0,

@@ -32,6 +32,7 @@ FIELDS = {
     "prompt_version",
     "model",
     "params",
+    "context_sources",
     "output",
     "duration_ms",
     "input_tokens",

@@ -10,6 +10,8 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.rag.settings import RagSettings
+
 # .env is loaded once, at import time. Every module reaches configuration
 # through app.config, so environment variables are available process-wide
 # without each module having to load the file itself. Values already present
@@ -62,16 +64,6 @@ class LLMSettings(_Strict):
             "claude-sonnet-5-5": ModelPrice(input=2.0, output=10.0),
         }
     )
-
-
-class RagSettings(_Strict):
-    """Glossary and translation memory (Phase 2, no-op for now)."""
-
-    glossary: bool = False
-    glossary_path: str = "data/glossary.csv"
-    translation_memory: bool = False
-    tm_path: str = "data/tm.jsonl"
-    tm_top_k: int = Field(default=3, ge=0)
 
 
 class VerificationSettings(_Strict):
@@ -135,14 +127,8 @@ def llm_settings(config: dict[str, Any]) -> LLMSettings:
 
 
 def rag_settings(config: dict[str, Any]) -> RagSettings:
-    """Validated `rag` section, paths resolved against the repo root."""
-    settings = _section(config, "rag")
-    return settings.model_copy(
-        update={
-            "glossary_path": str(resolve_path(settings.glossary_path)),
-            "tm_path": str(resolve_path(settings.tm_path)),
-        }
-    )
+    """Validated `rag` section (the model lives in app.rag.settings)."""
+    return _section(config, "rag")
 
 
 def verification_settings(config: dict[str, Any]) -> VerificationSettings:

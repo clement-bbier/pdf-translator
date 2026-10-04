@@ -92,7 +92,7 @@ def test_defaults_without_section() -> None:
     check(llm.compare_models[0].model == "claude-sonnet-5-5", "default compare_models wrong")
     check(app_config.cache_settings({}).enabled, "cache default should be enabled")
     check(not app_config.verification_settings({}).enabled, "verification default")
-    check(not app_config.rag_settings({}).glossary, "rag default")
+    check(app_config.rag_settings({}).glossary, "rag default: glossary on")
 
 
 def test_gateway_request_carries_model_and_temperature() -> None:
