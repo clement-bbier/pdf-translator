@@ -1,12 +1,24 @@
 """Tests for the Claude Code hooks in .claude/hooks/.
 
-Each hook is run as a subprocess, exactly as Claude Code runs it: a JSON event
-on stdin, then the exit code is checked (0 = allow, 2 = block). No network.
+Each hook receives a JSON event on stdin, exactly as Claude Code sends it, and
+the exit code is checked (0 = allow, 2 = block). No network.
+
+The stdlib-only guards run in this process (stdin, stdout, stderr and the
+environment are swapped for the call): starting a Python process per case
+costs seconds on a loaded Windows machine and made the suite flaky under load.
+test_hook_scripts_run_as_subprocesses still runs every guard as a real
+subprocess, the way Claude Code does. secret_scan, lint_python and
+validate_handoff always run as subprocesses (git, ruff and the venv launcher
+are part of what they test).
 Run: python tests/test_hooks.py
 """
 
 from __future__ import annotations
 
+import contextlib
+import importlib.util
+import inspect
+import io
 import json
 import os
 import subprocess
@@ -14,6 +26,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from types import ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS = ROOT / ".claude" / "hooks"
@@ -22,11 +35,58 @@ FAILURES: list[str] = []
 
 ALLOW, BLOCK = 0, 2
 
+IN_PROCESS = {
+    "guard_bash.py",
+    "guard_write.py",
+    "guard_read.py",
+    "guard_role.py",
+    "record_subagent_start.py",
+    "session_context.py",
+}
+_MODULES: dict[str, ModuleType] = {}
+
 
 def check(condition: bool, message: str) -> None:
     """Record a failure if the condition does not hold."""
     if not condition:
         FAILURES.append(message)
+
+
+def _hook_env(env: dict[str, str] | None) -> dict[str, str]:
+    # The human override must only be active when a test sets it explicitly.
+    full_env = {k: v for k, v in os.environ.items() if k != "AGENTIC_ALLOW_REFERENCE_EDIT"}
+    full_env.update({"PYTHONIOENCODING": "utf-8", **(env or {})})
+    return full_env
+
+
+def _load(script: str) -> ModuleType:
+    if script not in _MODULES:
+        spec = importlib.util.spec_from_file_location(f"hook_{script[:-3]}", HOOKS / script)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _MODULES[script] = module
+    return _MODULES[script]
+
+
+def _run_in_process(
+    script: str, event: dict, args: tuple[str, ...], env: dict[str, str]
+) -> subprocess.CompletedProcess[str]:
+    module = _load(script)
+    saved_env, saved_stdin = dict(os.environ), sys.stdin
+    out, err = io.StringIO(), io.StringIO()
+    os.environ.clear()
+    os.environ.update(env)
+    sys.stdin = io.StringIO(json.dumps(event))
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            takes_argv = bool(inspect.signature(module.main).parameters)
+            code = module.main(list(args)) if takes_argv else module.main()
+    finally:
+        os.environ.clear()
+        os.environ.update(saved_env)
+        sys.stdin = saved_stdin
+    return subprocess.CompletedProcess([script, *args], code, out.getvalue(), err.getvalue())
 
 
 def run_hook(
@@ -36,11 +96,12 @@ def run_hook(
     args: tuple[str, ...] = (),
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
+    subprocess_only: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run a hook script with ``event`` as stdin JSON."""
-    # The human override must only be active when a test sets it explicitly.
-    full_env = {k: v for k, v in os.environ.items() if k != "AGENTIC_ALLOW_REFERENCE_EDIT"}
-    full_env.update({"PYTHONIOENCODING": "utf-8", **(env or {})})
+    full_env = _hook_env(env)
+    if script in IN_PROCESS and cwd is None and not subprocess_only:
+        return _run_in_process(script, event, args, full_env)
     return subprocess.run(
         [sys.executable, str(HOOKS / script), *args],
         input=json.dumps(event),
@@ -49,7 +110,7 @@ def run_hook(
         encoding="utf-8",
         env=full_env,
         cwd=cwd or ROOT,
-        timeout=60,
+        timeout=300,
     )
 
 
@@ -680,8 +741,29 @@ def test_session_context_reports_status() -> None:
         check(len(context.splitlines()) <= 6, "context must stay short")
 
 
+def test_hook_scripts_run_as_subprocesses() -> None:
+    """Every in-process guard also works as a real subprocess, as Claude Code runs it."""
+    env_file = str(ROOT / ".env")
+    cases = [
+        ("guard_bash.py", bash_event("rm -rf build"), BLOCK),
+        ("guard_bash.py", bash_event("git status"), ALLOW),
+        ("guard_write.py", write_event(env_file), BLOCK),
+        ("guard_read.py", {"tool_name": "Read", "tool_input": {"file_path": env_file}}, BLOCK),
+        (
+            "guard_role.py",
+            {"tool_name": "Bash", "tool_input": {"command": "git push"}, "agent_type": "reviewer"},
+            BLOCK,
+        ),
+        ("session_context.py", {"source": "startup"}, ALLOW),
+    ]
+    for script, event, expected in cases:
+        result = run_hook(script, event, subprocess_only=True)
+        check(result.returncode == expected, f"{script} as subprocess: {result.returncode}")
+
+
 def main() -> int:
     tests = [
+        test_hook_scripts_run_as_subprocesses,
         test_guard_bash_blocks_destructive_commands,
         test_guard_bash_allows_safe_commands,
         test_guard_bash_blocks_env_reads,

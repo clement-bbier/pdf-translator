@@ -41,13 +41,25 @@ _GIT_READ = (
     "git merge-base",
     "git branch",
     "git ls-files",
+    "git grep",
     "git worktree list",
+    # Every role validates its own handoff before stopping.
+    "python .claude/hooks/handoff.py",
 )
 _TESTS = ("make test", "make lint", "make check", "python scripts/run_tests.py", "python tests/")
 
 BASH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     "planner": _GIT_READ,
-    "reviewer": _GIT_READ + _TESTS + ("make validate", "python -m ruff check", "ruff check"),
+    "reviewer": _GIT_READ
+    + _TESTS
+    + (
+        "make validate",
+        "make security",
+        "python -m ruff check",
+        "ruff check",
+        # Exercise the CLI the change touches (writes only under output/ and tmp/).
+        "python -m app.",
+    ),
     "evaluator": _GIT_READ + ("make eval", "python -m evaluation"),
     "security-auditor": _GIT_READ
     + (
@@ -62,8 +74,40 @@ BASH_ALLOWLIST: dict[str, tuple[str, ...]] = {
 # Commands that only read their input; allowed after a pipe or on their own.
 _FILTERS = {"head", "tail", "grep", "wc", "sort", "uniq", "cat", "ls", "echo", "pwd", "cd", "true"}
 
-_SPLIT_RE = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
 _REDIRECT_RE = re.compile(r"(?<![0-9&])>{1,2}(?!&)|\btee\b")
+_QUOTED_RE = re.compile(r"'[^']*'|\"(?:[^\"\\]|\\.)*\"")
+
+
+def _split_commands(command: str) -> list[str]:
+    """Split on &&, ||, ;, | and newlines, ignoring separators inside quotes."""
+    parts: list[str] = []
+    current: list[str] = []
+    quote = ""
+    index = 0
+    while index < len(command):
+        char = command[index]
+        if quote:
+            current.append(char)
+            if char == "\\" and quote == '"' and index + 1 < len(command):
+                current.append(command[index + 1])
+                index += 1
+            elif char == quote:
+                quote = ""
+        elif char in "'\"":
+            quote = char
+            current.append(char)
+        elif command.startswith(("&&", "||"), index):
+            parts.append("".join(current))
+            current = []
+            index += 1
+        elif char in ";|\n":
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+        index += 1
+    parts.append("".join(current))
+    return [part.strip() for part in parts if part.strip()]
 
 
 def _normalize(part: str) -> str:
@@ -87,10 +131,11 @@ def check_bash(role: str, command: str) -> str | None:
     if allowed is None:
         return None
     cleaned = re.sub(r"\s(?:2>&1|2>/dev/null|>/dev/null|2>nul)", " ", command)
-    if _REDIRECT_RE.search(cleaned):
+    # A '>' inside a quoted argument (a grep pattern, a message) is not a redirect.
+    if _REDIRECT_RE.search(_QUOTED_RE.sub("''", cleaned)):
         return f"{role} is read-only: output redirection to a file is not allowed"
-    for part in _SPLIT_RE.split(cleaned):
-        normalized = _normalize(part.strip())
+    for part in _split_commands(cleaned):
+        normalized = _normalize(part)
         if not normalized:
             continue
         if normalized.split()[0] in _FILTERS:
@@ -98,7 +143,7 @@ def check_bash(role: str, command: str) -> str | None:
         if not any(
             normalized == prefix
             or normalized.startswith(prefix + " ")
-            or (prefix.endswith("/") and normalized.startswith(prefix))
+            or (prefix.endswith(("/", ".")) and normalized.startswith(prefix))
             for prefix in allowed
         ):
             return (

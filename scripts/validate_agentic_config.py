@@ -231,6 +231,17 @@ def check_settings(errors: list[str], agent_scripts: set[str]) -> None:
         errors.append(
             "settings.json: guard_role.py must run on PreToolUse for Bash, Write and Edit"
         )
+    handback = [
+        group
+        for group in hooks.get("PreToolUse", [])
+        if "SubagentHandback" in group.get("matcher", "")
+        and "validate_handoff" in json.dumps(group)
+    ]
+    if not handback:
+        errors.append(
+            "settings.json: validate_handoff must also run on PreToolUse SubagentHandback "
+            "(background agents finish through that tool)"
+        )
     if "secret_scan" not in settings_scripts:
         errors.append("settings.json: secret_scan.py must run before commits (PreToolUse Bash)")
 

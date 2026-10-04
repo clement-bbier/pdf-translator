@@ -72,6 +72,7 @@ def test_version_flag_subprocess() -> None:
         cwd=ROOT,
         capture_output=True,
         text=True,
+        timeout=120,
     )
     check(result.returncode == 0, f"subprocess exit code {result.returncode}")
     check(

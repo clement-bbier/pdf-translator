@@ -80,6 +80,16 @@
         ]
       },
       {
+        "matcher": "SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.py\" validate_handoff",
+            "timeout": 60
+          }
+        ]
+      },
+      {
         "matcher": "Read|Grep",
         "hooks": [
           {

@@ -17,7 +17,17 @@ file is valid, so a handoff always exists when an agent returns.
 
 Validate any handoff you read with
 `python .claude/hooks/handoff.py <file>` (use the venv interpreter, see
-CLAUDE.md) before acting on it.
+CLAUDE.md) before acting on it. If one is invalid, send the errors back to
+the agent that wrote it (SendMessage) and let it fix its own file. Never
+write or rewrite another agent's handoff: the handoff is that agent's
+statement, not yours.
+
+**Non-interactive runs (`claude -p`).** The process exits as soon as your
+turn ends, which kills background commands. Do not end your turn until the
+workflow is merged or blocked; run long commands in the foreground with the
+Bash timeout at 600000 ms; when the full suite is slower than that, run it in
+groups (`python scripts/run_tests.py hooks`, `... roundtrip`, then the rest)
+one after the other, never in parallel. Pass the same rules to every agent.
 
 ## 0. Preflight
 

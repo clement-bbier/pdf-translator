@@ -92,6 +92,7 @@ The first demonstration run exposed this (a planner ran `sed` unchecked), and
 | PostToolUse | Edit, Write, MultiEdit | `lint_python.py` (via `run_hook.py`) | `ruff format` + `ruff check --fix` on the written `.py` file; unfixable issues go back to the agent (exit 2) |
 | SubagentStart | the six agents | `record_subagent_start.py` | Records the agent's start time |
 | SubagentStop | the six agents | `validate_handoff.py` (via `run_hook.py`) | Requires a handoff written since start and valid against the schema; otherwise exit 2 and the agent keeps working |
+| PreToolUse | SubagentHandback | `validate_handoff.py` (via `run_hook.py`) | Same check when a background agent hands its report back, so an invalid handoff cannot be delivered |
 
 `run_hook.py` runs a hook with the main checkout's venv interpreter (pydantic,
 ruff), also when the agent works in a worktree. The other hooks use the
@@ -135,6 +136,24 @@ Validation happens in the SubagentStop hook: the agent cannot finish until
 the file exists, is newer than the agent's start, and validates. After four
 refusals the hook releases the agent with a warning so a confused agent
 cannot loop; the orchestrator then treats the task as blocked.
+
+## What the first run taught
+
+The `/feature` demonstration (adding `--version` to the CLIs, merge commit
+`4f72661`) ran the whole chain in headless sessions and exposed six problems,
+all fixed in the configuration described above:
+
+| Observed | Cause | Fix |
+| --- | --- | --- |
+| The planner ran `sed` although its role forbids it | Claude Code skips frontmatter hooks of project agents until the workspace trust dialog is accepted; `claude -p` never accepts it | Role guard wired in `settings.json`, role read from `agent_type`; the validator rejects frontmatter hooks |
+| The run stopped after integrating the first task | In `claude -p` the process exits when the orchestrator ends its turn, killing the background test run | `/feature` requires foreground commands and test groups under the 10-minute tool limit |
+| An off-schema evaluator handoff was delivered, then rewritten by the orchestrator | Background agents finish through the SubagentHandback tool; blocking only SubagentStop came too late | Same validation on PreToolUse `SubagentHandback`; the orchestrator sends errors back and never writes another agent's handoff |
+| Reviewer and auditor refused `git grep`, `make security`, a quoted grep pattern | Allowlist too narrow; the command splitter cut inside quotes | Allowlist extended; quote-aware splitting and redirect detection |
+| Implementers refused by the worktree isolation check | `git add && git commit` chains and heredocs are too complex to verify | Implementer told to issue one git command per call and write files with tools |
+| Two hook tests failed under load | One Python process per test case; on a saturated machine some exceeded their timeout | Guards tested in-process, one real subprocess run per guard kept |
+
+The security auditor also raised a real issue in the feature itself (the
+`setuptools>=61` build floor admitted vulnerable versions), fixed afterwards.
 
 ## Usage
 

@@ -28,6 +28,10 @@ the feature id, and for a fix round the reviewer's findings.
 - Never read or write `.env`; never edit `evaluation/dataset/` or
   `evaluation/baseline*.json` (the hooks block it anyway).
 - Run `make test` and `make lint` before finishing. All must pass.
+- Shell commands inside the worktree must stay simple enough for Claude
+  Code's isolation check: one git command per Bash call (no `&&` chains,
+  no `cd`, no `-C`), and write files with the Write/Edit tools, never with
+  heredocs or `cat >`.
 
 ## Commit
 
@@ -35,6 +39,9 @@ When tests and lint pass, commit on your worktree branch (one commit):
 
 ```
 git add <your files>
+```
+then, in a separate Bash call:
+```
 git commit -m "<type>(<scope>): <summary>" -m "Task: <task_id>"
 ```
 

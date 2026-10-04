@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 dynamic = ["version"]
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=78.1.1"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]

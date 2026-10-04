@@ -29,7 +29,7 @@ Checked on 2026-10-04 against Claude Code 2.1.288 and code.claude.com/docs
 - [x] `.claude/schemas/handoff.schema.json` exported from the Pydantic model
 - [x] `evaluation/`: layout suite + committed baseline + comparison (gives /eval and the evaluator real work before the translation suite exists)
 - [x] `scripts/validate_agentic_config.py`, `scripts/run_tests.py`, `scripts/install_git_hooks.py`, `Makefile`
-- [x] `tests/test_hooks.py` (23 tests, every hook), `tests/test_agentic_config.py` (validator mutation tests)
+- [x] `tests/test_hooks.py` (24 tests, every hook), `tests/test_agentic_config.py` (validator mutation tests)
 - [x] CI: lint, validate, secret scan, tests, eval
 - [x] `docs/agentic-development.md`
-- [ ] Demonstration: `/feature` adds `--version` to the CLI, end to end, in a headless session
+- [x] Demonstration: `/feature` adds `--version` to the CLI, end to end, in a headless session (merge `4f72661`; lessons in docs/agentic-development.md)

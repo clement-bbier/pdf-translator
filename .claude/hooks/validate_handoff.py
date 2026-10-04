@@ -1,4 +1,10 @@
-"""SubagentStop hook: a workflow agent may only stop after writing a valid handoff.
+"""SubagentStop + PreToolUse(SubagentHandback) hook: no valid handoff, no exit.
+
+A workflow agent may only stop - or hand its report back with the
+SubagentHandback tool, which background subagents use to finish - after
+writing a valid handoff. The first /feature demonstration showed why both are
+needed: a background evaluator delivered its report through SubagentHandback
+with an off-schema handoff, and blocking only SubagentStop came too late.
 
 For the six workflow agents (planner, implementer, reviewer, evaluator,
 security-auditor, docs-writer) the hook looks for
@@ -107,6 +113,10 @@ def main() -> int:
     if record:
         record["attempts"] = attempts
         record_path.write_text(json.dumps(record), encoding="utf-8")
+    if event.get("hook_event_name") == "PreToolUse":
+        problem = problem.replace("then stop again", "then hand back again").replace(
+            "Before stopping", "Before handing back"
+        )
     if attempts > MAX_ATTEMPTS:
         print(
             json.dumps(
