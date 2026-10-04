@@ -9,6 +9,8 @@ import threading
 import time
 import uuid
 import zipfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -16,7 +18,7 @@ from typing import Any
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from app import auth
+from app import access, auth
 from app import config as app_config
 from app.pipeline import OUTPUT_DIR, JobResult, _validate_file, run_job
 
@@ -26,7 +28,16 @@ TMP_DIR = Path(__file__).resolve().parent.parent / "tmp"
 
 JOB_TTL_SECONDS = 30 * 60
 
-app = FastAPI(title="PDF Translator")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Log once whether the access guard is active."""
+    access.log_access_mode(logger)
+    yield
+
+
+app = FastAPI(title="PDF Translator", lifespan=_lifespan)
+app.add_middleware(access.AccessGuardMiddleware)
 
 
 @app.exception_handler(Exception)
@@ -520,6 +531,12 @@ def index() -> str:
     """Serve the single-page UI."""
     config = app_config.load_config()
     return _render_index(config)
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, str]:
+    """Liveness probe: no auth, no config load, no I/O."""
+    return {"status": "ok"}
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,22 @@
+# Allow-list: nothing enters the build context unless named here.
+*
+!app/
+!prompts/
+!data/
+!config.yaml
+!requirements.lock
+
+# Defensive re-exclusions (they also document what must never be shipped).
+.git
+**/.env*
+.venv
+**/__pycache__
+**/*.pyc
+tests/
+traces/
+tmp/
+output/
+.ruff_cache
+.claude/handoffs
+.claude/worktrees
+evaluation/reports

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ load_dotenv()
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
 
 REPO_ROOT = DEFAULT_CONFIG_PATH.parent
+
+PROVIDER_ENV = "APP_PROVIDER"
 
 _cache: dict[str, Any] | None = None
 
@@ -154,6 +157,14 @@ def validate_config(config: dict[str, Any]) -> None:
         _section(config, name)
 
 
+def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
+    """APP_PROVIDER (when non-empty) overrides config.yaml's provider."""
+    provider = os.environ.get(PROVIDER_ENV, "").strip()
+    if provider:
+        data["provider"] = provider
+    return data
+
+
 def load_config(path: str | Path | None = None, *, reload: bool = False) -> dict[str, Any]:
     """Return the parsed config.yaml (validated, still a plain dict), cached after first call."""
     global _cache
@@ -163,6 +174,7 @@ def load_config(path: str | Path | None = None, *, reload: bool = False) -> dict
     config_path = Path(path) if path is not None else DEFAULT_CONFIG_PATH
     with config_path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
+    data = _apply_env_overrides(data)
 
     validate_config(data)
 

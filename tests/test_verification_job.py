@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -29,6 +30,11 @@ from app.llm.fake_provider import FakeProvider  # noqa: E402
 from app.llm.translator import LLMTranslator  # noqa: E402
 from app.translator import MockTranslator  # noqa: E402
 from tests import make_fixtures  # noqa: E402
+
+# A developer's local env file may set these (loaded by app.config at import);
+# the web tests exercise the unprotected app with config.yaml's provider.
+os.environ.pop("APP_PASSWORD", None)
+os.environ.pop("APP_PROVIDER", None)
 
 FAILURES: list[str] = []
 _JOB_DIRS: list[Path] = []

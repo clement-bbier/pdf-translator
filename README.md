@@ -132,6 +132,25 @@ python -m app.pipeline --version
 
 Every module CLI accepts `--version` and prints `pdf-translator <version>`.
 
+## Run with Docker
+
+```bash
+cp .env.example .env          # then set APP_PASSWORD (and APP_PROVIDER if needed)
+make docker-up                # or: docker compose up --build
+# open http://127.0.0.1:8000
+```
+
+- `APP_PASSWORD` enables HTTP Basic on every route except `/healthz`: any
+  user name, the password must match. Empty or unset means no access guard
+  (local use); the app logs a startup warning in that case. HTTP Basic sends
+  the password on every request, so put a TLS reverse proxy in front for any
+  non-local use, choose a long random password, and rate-limit at the proxy
+  (the app has no lockout).
+- `APP_PROVIDER` overrides `provider` from `config.yaml` (for example `mock`).
+- The compose file publishes the port on `127.0.0.1` only and runs a
+  read-only, capability-dropped container with one uvicorn worker (jobs are
+  kept in memory). Rationale: [decision 0002](docs/decisions/0002-container-and-access-guard.md).
+
 ## Authentication
 
 `GatewayTranslator` (used when `provider: gateway` in `config.yaml`)
