@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pymupdf
 
+from app import __version__, fonts
 from app import config as app_config
-from app import fonts
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Render a PDF page to PNG, as sent to a multimodal model."
     )
+    parser.add_argument("--version", action="version", version=f"pdf-translator {__version__}")
     parser.add_argument("pdf", type=Path, help="path to the PDF file")
     parser.add_argument("--page", type=int, default=0, help="0-based page number")
     parser.add_argument("--dpi", type=int, default=SCAN_DPI, help="render resolution")
