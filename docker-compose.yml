@@ -1,0 +1,32 @@
+# Local run: `make docker-up`, then http://127.0.0.1:8000
+# Set APP_PASSWORD (shell or project .env) to protect the UI with HTTP Basic;
+# serve it over TLS through a reverse proxy before exposing it.
+services:
+  web:
+    build: .
+    image: pdf-translator:local
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_PASSWORD: "${APP_PASSWORD:-}"
+      APP_PROVIDER: "${APP_PROVIDER:-}"
+    volumes:
+      - output:/app/output
+      - tmp:/app/tmp
+      - traces:/app/traces
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+
+volumes:
+  output:
+  tmp:
+  traces:

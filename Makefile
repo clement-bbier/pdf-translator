@@ -8,7 +8,7 @@ VENV_PY := $(firstword $(wildcard .venv/Scripts/python.exe .venv/bin/python \
 PYTHON ?= $(if $(VENV_PY),$(VENV_PY),python)
 
 .PHONY: help install test lint format check eval eval-baseline validate security audit \
-	hooks-install
+	hooks-install lock docker-build docker-up
 
 help:
 	@echo "install        install runtime + dev dependencies"
@@ -20,6 +20,9 @@ help:
 	@echo "validate       check the agentic configuration (.claude/)"
 	@echo "security       secret/forbidden-term scan of tracked files"
 	@echo "audit          dependency vulnerability audit (network)"
+	@echo "lock           regenerate requirements.lock with hashes (uv, network)"
+	@echo "docker-build   build the container image pdf-translator:local"
+	@echo "docker-up      build and start the container with docker compose"
 	@echo "check          lint + test + validate + security (pre-push gate)"
 
 install:
@@ -55,3 +58,12 @@ hooks-install:
 	$(PYTHON) scripts/install_git_hooks.py
 
 check: lint test validate security
+
+lock:
+	$(PYTHON) -m uv pip compile requirements.txt --generate-hashes --python-version 3.12 --python-platform x86_64-unknown-linux-gnu -o requirements.lock
+
+docker-build:
+	docker build -t pdf-translator:local .
+
+docker-up:
+	docker compose up --build
