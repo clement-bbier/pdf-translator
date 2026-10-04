@@ -1,10 +1,16 @@
 # Sources
 
-All segments in `eval_segments.jsonl` and `tm_segments.jsonl` are short extracts reproduced verbatim from public bilingual announcements published by Hong Kong listed issuers on HKEXnews (https://www.hkexnews.hk). They are used here only for translation-quality evaluation and as a small translation memory, with attribution to the issuer and the original document. Copyright in the documents remains with the respective issuers.
+All segments in `tm/seed_zh_en.jsonl` are short extracts reproduced verbatim from public bilingual announcements published by Hong Kong listed issuers on HKEXnews (https://www.hkexnews.hk). They are used here as a small translation memory (and, in a separate evaluation set, for translation-quality evaluation), with attribution to the issuer and the original document. Copyright in the documents remains with the respective issuers. Each record of the seed also carries its issuer, document title, date, URLs and pages.
 
 Text was extracted with PyMuPDF; the only changes are whitespace normalisation (hard line breaks joined, runs of spaces collapsed, spaces adjacent to CJK characters removed in the Chinese text). Note: on HKEXnews the Chinese PDF of these documents carries the next document number plus a `_c` suffix (e.g. `2026031800388.pdf` / `2026031800389_c.pdf`), not the same number.
 
-## Documents used in `eval_segments.jsonl`
+## Glossary: `glossary/finance_zh.csv`
+
+The file holds 59 financial terms. The source terms are Traditional Chinese as used in Hong Kong filings. The English targets are the renderings used in the companies' official English versions of their filings. The French targets are the project's own standard renderings.
+
+## Documents used in the evaluation set
+
+The evaluation set is not part of this repository tree. Its segments come from the four documents below, and it is kept disjoint from the translation memory.
 
 ### Tencent Holdings Limited (0700) - Announcement of the Annual Results for the Year Ended 31 December 2025
 - Date: 2026-03-18
@@ -30,7 +36,7 @@ Text was extracted with PyMuPDF; the only changes are whitespace normalisation (
 - Chinese: https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0312/2026031200333_c.pdf
 - Segments taken: 5
 
-## Documents used in `tm_segments.jsonl`
+## Documents used in `tm/seed_zh_en.jsonl`
 
 ### CK Hutchison Holdings Limited (0001), joint announcement with CK Infrastructure Holdings Limited (1038) - Connected Transaction and Discloseable Transaction - Joint Announcement Relating to Disposal of UK Power Networks
 - Date: 2026-02-26
