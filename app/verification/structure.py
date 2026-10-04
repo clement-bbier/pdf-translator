@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
+from app.llm.answer import strip_code_fence
 from app.verification.findings import Finding
 
 
 def check_json(answer_text: str) -> tuple[dict[str, object] | None, list[Finding]]:
     """Parse the answer as a JSON object and check that values are strings."""
     try:
-        parsed = json.loads(answer_text)
+        parsed = json.loads(strip_code_fence(answer_text))
     except (ValueError, TypeError):
         return None, [Finding("json_valid", None, "answer is not valid JSON")]
     if not isinstance(parsed, dict):

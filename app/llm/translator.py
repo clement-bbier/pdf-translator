@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from app.llm.answer import strip_code_fence
 from app.llm.base import LLMProvider, LLMRequest, request_fingerprint
 from app.llm.errors import TranslationError
 from app.llm.prompts import PromptBuilder, load_prompt
@@ -124,7 +125,7 @@ class LLMTranslator:
         response = self._provider.complete(request)
 
         try:
-            parsed = json.loads(response.text)
+            parsed = json.loads(strip_code_fence(response.text))
         except ValueError as error:
             self._invalidate(request)
             raise TranslationError(f"malformed model response: {error}") from error

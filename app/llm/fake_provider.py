@@ -92,10 +92,13 @@ class FakeProvider:
         drop_numbers: bool = False,
         wrong_segment_count: bool = False,
         invalid_json: bool = False,
+        fenced_json: bool = False,
     ) -> None:
         self._drop_numbers = drop_numbers
         self._wrong_segment_count = wrong_segment_count
         self._invalid_json = invalid_json
+        # Real models often wrap JSON in a Markdown fence; reproduce it on demand.
+        self._fenced_json = fenced_json
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         """Return a deterministic answer for the request."""
@@ -126,6 +129,8 @@ class FakeProvider:
             text = json.dumps(result, ensure_ascii=False)
             if self._invalid_json:
                 text = text[:-1]
+            if self._fenced_json:
+                text = f"```json\n{text}\n```"
 
         return LLMResponse(
             text=text,
