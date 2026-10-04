@@ -25,6 +25,10 @@ Both must print nothing (skip the second when there is no base commit). If
 either prints anything: verdict `regression`, risk
 `references modified`, stop here.
 
+Exception: during the feature that adds a dataset, `git status -- evaluation/dataset`
+legitimately lists the new files. What must never happen is a change to an
+EXISTING reference file (modified or deleted); check that only additions appear.
+
 ## 2. Run
 
 ```
@@ -47,6 +51,7 @@ Open `evaluation/reports/latest.json`. For each row of `comparison`:
 | `improvement` | moved the right way | report; only a human may accept it with `make eval-baseline` |
 | `unchanged` | within tolerance | nothing |
 | `new` | metric absent from the baseline | report; a human adds it with `make eval-baseline` |
+| `info` | informational metric (latency, standard deviation) | never a regression; report only |
 
 The overall verdict is the file's `verdict` field: any regression makes the
 whole run a regression. No regression is tolerated in /feature.

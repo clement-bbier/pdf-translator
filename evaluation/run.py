@@ -1,7 +1,7 @@
 """Run the evaluation suites and compare them with the committed baseline.
 
     python -m evaluation.run                    # run, compare, write reports
-    python -m evaluation.run --update-baseline  # human only: accept current numbers
+    python -m evaluation.run --update-baseline  # human only: merge current numbers per suite key
 
 Outputs (gitignored runtime state):
     evaluation/reports/latest.json   machine-readable result + verdict
@@ -24,34 +24,58 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
-from evaluation import layout_suite
+from evaluation import layout_suite, translation_suite
 
 ROOT = Path(__file__).resolve().parent
 BASELINE_PATH = ROOT / "baseline.json"
 REPORTS_DIR = ROOT / "reports"
+PUBLISH_PATH = ROOT.parent / "docs" / "evaluation-report.md"
 
-SUITES: dict[str, ModuleType] = {layout_suite.NAME: layout_suite}
+SUITES: dict[str, ModuleType] = {
+    layout_suite.NAME: layout_suite,
+    translation_suite.NAME: translation_suite,
+}
 
 # Absolute tolerance per suite; deterministic suites tolerate no movement.
 TOLERANCE: dict[str, float] = {layout_suite.NAME: 0.0}
+
+REAL_KEY = f"{translation_suite.NAME}@anthropic"
 
 
 def compare(
     current: dict[str, dict[str, float]], baseline: dict[str, dict[str, float]]
 ) -> list[dict]:
-    """Return one row per metric with its baseline, current value and status."""
+    """Return one row per metric with its baseline, current value and status.
+
+    A suite key may carry a variant ('translation@anthropic'); the module is
+    resolved from the part before '@'. Optional suite hooks metric_direction
+    (None = informational, status 'info') and metric_tolerance override
+    DIRECTIONS / TOLERANCE.
+    """
     rows: list[dict] = []
     for suite_name, metrics in current.items():
-        directions = SUITES[suite_name].DIRECTIONS
-        tolerance = TOLERANCE.get(suite_name, 0.0)
+        module = SUITES[suite_name.split("@")[0]]
+        directions = getattr(module, "DIRECTIONS", {})
+        direction_hook = getattr(module, "metric_direction", None)
+        tolerance_hook = getattr(module, "metric_tolerance", None)
         reference = baseline.get(suite_name, {})
         for metric, value in metrics.items():
             base = reference.get(metric)
-            if base is None:
+            if tolerance_hook is not None:
+                tolerance = tolerance_hook(suite_name, metric, metrics, reference)
+            else:
+                tolerance = TOLERANCE.get(suite_name, 0.0)
+            higher_is_better = (
+                direction_hook(metric)
+                if direction_hook is not None
+                else directions.get(metric, True)
+            )
+            if higher_is_better is None:
+                status = "info"
+            elif base is None:
                 status = "new"
             else:
                 delta = value - base
-                higher_is_better = directions.get(metric, True)
                 worse = -delta if higher_is_better else delta
                 if worse > tolerance:
                     status = "regression"
@@ -101,24 +125,77 @@ def render_markdown(rows: list[dict], verdict: str, generated_at: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the evaluation suites.")
     parser.add_argument("--suite", choices=sorted(SUITES), action="append", help="suites to run")
-    parser.add_argument("--update-baseline", action="store_true", help="overwrite baseline.json")
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="merge the current numbers into baseline.json, per suite key",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["fake", "anthropic"],
+        default="fake",
+        help="translation suite provider (anthropic runs only that suite)",
+    )
+    parser.add_argument("--limit", type=int, default=None, help="first N dataset segments only")
+    parser.add_argument(
+        "--publish-report",
+        action="store_true",
+        help="copy reports/translation.md to docs/evaluation-report.md",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.ERROR)
 
+    if args.limit is not None and args.update_baseline:
+        print("error: --limit cannot be combined with --update-baseline (partial dataset)")
+        return 2
+
+    if args.publish_report:
+        source = REPORTS_DIR / "translation.md"
+        if not source.is_file():
+            print(f"nothing to publish: {source} is missing (run `make eval` first)")
+            return 1
+        PUBLISH_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PUBLISH_PATH.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"published: {PUBLISH_PATH}")
+        return 0
+
     started = time.monotonic()
-    current = {name: SUITES[name].run() for name in (args.suite or sorted(SUITES))}
+    current: dict[str, dict[str, float]] = {}
+    translation_report: str | None = None
+    if args.provider == "anthropic":
+        try:
+            run_result = translation_suite.evaluate("anthropic", limit=args.limit)
+        except translation_suite.SuiteUnavailable as exc:
+            print(f"translation suite unavailable: {exc}")
+            return 2
+        current[REAL_KEY] = run_result.metrics
+        translation_report = run_result.render_markdown()
+    else:
+        for name in args.suite or sorted(SUITES):
+            if name == translation_suite.NAME:
+                run_result = translation_suite.evaluate("fake", limit=args.limit)
+                current[name] = run_result.metrics
+                translation_report = run_result.render_markdown()
+            else:
+                current[name] = SUITES[name].run()
     generated_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    if args.update_baseline:
-        BASELINE_PATH.write_text(
-            json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        print(f"baseline updated: {BASELINE_PATH}")
-        return 0
+    if translation_report is not None:
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        (REPORTS_DIR / "translation.md").write_text(translation_report, encoding="utf-8")
 
     baseline = (
         json.loads(BASELINE_PATH.read_text(encoding="utf-8")) if BASELINE_PATH.is_file() else {}
     )
+
+    if args.update_baseline:
+        baseline.update(current)
+        BASELINE_PATH.write_text(
+            json.dumps(baseline, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        print(f"baseline updated: {BASELINE_PATH}")
+        return 0
+
     rows = compare(current, baseline)
     verdict = verdict_of(rows)
     regressions = [row for row in rows if row["status"] == "regression"]

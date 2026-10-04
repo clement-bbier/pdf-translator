@@ -24,12 +24,12 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
 
-      # Placeholder: the evaluation workstream will switch this step to
-      # `make eval-real`. The key is exposed to this step only.
+      # Translation suite on the configured Claude model and the comparison
+      # models (config.yaml llm.model / llm.compare_models). The key is
+      # exposed to this step only and never printed.
       - name: Evaluation with the real model
-        run: make eval PYTHON=python
+        run: make eval-real PYTHON=python
         env:
-          APP_PROVIDER: anthropic
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Upload evaluation reports

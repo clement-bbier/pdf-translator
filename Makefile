@@ -8,7 +8,7 @@ VENV_PY := $(firstword $(wildcard .venv/Scripts/python.exe .venv/bin/python \
 PYTHON ?= $(if $(VENV_PY),$(VENV_PY),python)
 
 .PHONY: help install test lint format check eval eval-baseline validate security audit \
-	hooks-install lock docker-build docker-up
+	hooks-install lock docker-build docker-up eval-real eval-report
 
 help:
 	@echo "install        install runtime + dev dependencies"
@@ -17,6 +17,8 @@ help:
 	@echo "format         ruff format + autofix"
 	@echo "eval           run the evaluation and compare with the baseline"
 	@echo "eval-baseline  HUMAN ONLY: accept the current evaluation numbers"
+	@echo "eval-real      translation suite with the real model (needs ANTHROPIC_API_KEY)"
+	@echo "eval-report    publish evaluation/reports/translation.md to docs/evaluation-report.md"
 	@echo "validate       check the agentic configuration (.claude/)"
 	@echo "security       secret/forbidden-term scan of tracked files"
 	@echo "audit          dependency vulnerability audit (network)"
@@ -44,6 +46,12 @@ eval:
 
 eval-baseline:
 	$(PYTHON) -m evaluation.run --update-baseline
+
+eval-real:
+	$(PYTHON) -m evaluation.run --provider anthropic
+
+eval-report:
+	$(PYTHON) -m evaluation.run --publish-report
 
 validate:
 	$(PYTHON) scripts/validate_agentic_config.py
