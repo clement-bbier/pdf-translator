@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -325,15 +326,22 @@ def test_anthropic_missing_key() -> None:
 def test_factory_providers() -> None:
     """fake and anthropic build LLMTranslators; mock is unchanged."""
     check(isinstance(get_translator({"provider": "mock"}), MockTranslator), "mock")
-    fake = get_translator({"provider": "fake"})
-    check(isinstance(fake, LLMTranslator), "fake")
-
     saved = os.environ.get("ANTHROPIC_API_KEY")
     os.environ["ANTHROPIC_API_KEY"] = "test-key"
     try:
-        translator = get_translator({"provider": "anthropic", "llm": {"temperature": 0.2}})
-        check(isinstance(translator, LLMTranslator), "anthropic")
-        check(translator.model == "claude-haiku-4-5-20251001", f"model: {translator.model}")
+        with tempfile.TemporaryDirectory() as tmp:
+            # Keep trace and cache files out of the repository.
+            isolation = {
+                "tracing": {"enabled": True, "path": str(Path(tmp) / "trace.jsonl")},
+                "cache": {"enabled": True, "path": str(Path(tmp) / "cache.json")},
+            }
+            fake = get_translator({"provider": "fake", **isolation})
+            check(isinstance(fake, LLMTranslator), "fake")
+            translator = get_translator(
+                {"provider": "anthropic", "llm": {"temperature": 0.2}, **isolation}
+            )
+            check(isinstance(translator, LLMTranslator), "anthropic")
+            check(translator.model == "claude-haiku-4-5-20251001", f"model: {translator.model}")
     finally:
         if saved is None:
             os.environ.pop("ANTHROPIC_API_KEY", None)

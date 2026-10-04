@@ -1,6 +1,6 @@
 # PDF Translator
 
-Internal tool for translating PDF contracts (CJK → FR/EN) through a single-page
+Tool for translating PDF contracts (CJK → FR/EN) through a single-page
 web UI. AI is used **only** for translation; extraction, layout, and
 reconstruction are fully deterministic.
 
@@ -50,8 +50,7 @@ is stored beyond the lifetime of a job.
   (`translate_blocks(blocks, src, tgt) -> list[str]`) plus two
   implementations: `MockTranslator` (deterministic, no network, used in
   tests and local development) and `GatewayTranslator` (calls an
-  OpenAI-compatible chat/completions endpoint through the internal LLM
-  gateway). The rest of the codebase only ever talks to this interface —
+  OpenAI-compatible chat/completions endpoint through an LLM gateway). The rest of the codebase only ever talks to this interface —
   nothing else knows which provider or model is behind it.
 - **rebuilder.py** — redacts the original text blocks and reinserts the
   translated text in the same area, shrinking the font size or falling back
@@ -66,7 +65,7 @@ is stored beyond the lifetime of a job.
   (scoped by source/target language pair), persisted to a local JSON file
   for the session.
 - **auth.py** — OAuth2 device-code flow used to authenticate
-  `GatewayTranslator` against the internal LLM gateway. See
+  `GatewayTranslator` against an OpenAI-compatible LLM gateway protected by an OAuth2 device-code flow. See
   [Authentication](#authentication) below.
 
 ## Quick start
@@ -125,7 +124,7 @@ Every module CLI accepts `--version` and prints `pdf-translator <version>`.
 ## Authentication
 
 `GatewayTranslator` (used when `provider: gateway` in `config.yaml`)
-authenticates against the internal LLM gateway with the standard OAuth2
+authenticates against an OpenAI-compatible LLM gateway with the standard OAuth2
 **device authorization grant** (RFC 8628), implemented in `auth.py`:
 
 1. **Device authorization** — POST to a device authorization endpoint;
@@ -133,7 +132,7 @@ authenticates against the internal LLM gateway with the standard OAuth2
    `expires_in`.
 2. **User approval** — the `verification_uri` is displayed (or opened) so the
    user can approve the request in their browser, using their existing
-   corporate SSO session. This application never handles the user's
+   identity provider's SSO session. This application never handles the user's
    credentials directly.
 3. **Polling** — the token endpoint is polled with the `device_code` at the
    interval the gateway specifies, until the request is approved, denied, or
@@ -160,7 +159,7 @@ Follow these steps only when you want real translations.
 
 ### 1. Get the values
 
-Ask the team that manages the internal LLM gateway for the five values listed
+Ask the gateway administrator for the five values listed
 in `.env.example`. They are all non-secret configuration except the
 `client_id`, which identifies this application to the identity provider:
 
@@ -200,7 +199,7 @@ button stays disabled until a session exists.
 
 1. Click **Sign in**. The page displays a short user code and a link.
 2. Open that link (it opens in a new tab), enter the code, and approve with
-   your normal corporate SSO login. This app never sees your password.
+   your normal SSO login. This app never sees your password.
 3. Leave the original tab open — it polls until approval lands, then switches
    to "Connected to the gateway" and enables **Translate**.
 
@@ -225,7 +224,7 @@ kills the job. Sign in again to restore normal translation.
 **Today — a local POC.** One process serves one user. You run the app on your
 own machine, sign in with your own SSO account, and the resulting token is
 held in memory in that process only, for its lifetime. Each user therefore
-consumes their own internal quota; there is no shared service account and no
+uses their own quota; there is no shared service account and no
 credential is shared between colleagues.
 
 **Model choice is left to the user.** `config.yaml` lists the available models
