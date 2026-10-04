@@ -1,8 +1,18 @@
 [project]
 name = "pdf-translator"
-version = "0.1.0"
 description = "Layout-preserving PDF translation (CJK to French/English) with an LLM."
 requires-python = ">=3.11"
+dynamic = ["version"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "app.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.ruff]
 line-length = 100
