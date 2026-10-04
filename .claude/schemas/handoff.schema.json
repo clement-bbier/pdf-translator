@@ -1,0 +1,239 @@
+{
+  "$defs": {
+    "Agent": {
+      "enum": [
+        "planner",
+        "implementer",
+        "reviewer",
+        "evaluator",
+        "security-auditor",
+        "docs-writer"
+      ],
+      "title": "Agent",
+      "type": "string"
+    },
+    "NextAgent": {
+      "enum": [
+        "planner",
+        "implementer",
+        "reviewer",
+        "evaluator",
+        "security-auditor",
+        "docs-writer",
+        "human",
+        "none"
+      ],
+      "title": "NextAgent",
+      "type": "string"
+    },
+    "PlannedTask": {
+      "additionalProperties": false,
+      "description": "One independent task produced by the planner.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 3,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 10,
+          "title": "Description",
+          "type": "string"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "files_hint": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files Hint",
+          "type": "array"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "acceptance_criteria"
+      ],
+      "title": "PlannedTask",
+      "type": "object"
+    },
+    "Status": {
+      "enum": [
+        "done",
+        "blocked",
+        "needs_review"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "TestRun": {
+      "additionalProperties": false,
+      "description": "The test command the agent ran and its outcome.",
+      "properties": {
+        "command": {
+          "description": "Exact command that was run.",
+          "minLength": 1,
+          "title": "Command",
+          "type": "string"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "command",
+        "passed",
+        "failed"
+      ],
+      "title": "TestRun",
+      "type": "object"
+    },
+    "Verdict": {
+      "enum": [
+        "approve",
+        "changes_requested"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Structured relay between agents of the /feature workflow.",
+  "properties": {
+    "task_id": {
+      "description": "Task or feature identifier.",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "agent": {
+      "$ref": "#/$defs/Agent"
+    },
+    "status": {
+      "$ref": "#/$defs/Status"
+    },
+    "summary": {
+      "maxLength": 4000,
+      "minLength": 10,
+      "title": "Summary",
+      "type": "string"
+    },
+    "files_changed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files Changed",
+      "type": "array"
+    },
+    "tests": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TestRun"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "decisions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Decisions",
+      "type": "array"
+    },
+    "risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "next_agent": {
+      "$ref": "#/$defs/NextAgent"
+    },
+    "tasks": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PlannedTask"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "planner only",
+      "title": "Tasks"
+    },
+    "verdict": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Verdict"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "reviewer only"
+    },
+    "metrics": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "evaluator only",
+      "title": "Metrics"
+    }
+  },
+  "required": [
+    "task_id",
+    "agent",
+    "status",
+    "summary",
+    "next_agent"
+  ],
+  "title": "Handoff",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "handoff.schema.json"
+}

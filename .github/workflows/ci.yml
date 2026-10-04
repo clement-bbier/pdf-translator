@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, tests, agentic config, secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: make lint PYTHON=python
+
+      - name: Validate agentic configuration
+        run: make validate PYTHON=python
+
+      - name: Secret scan
+        run: make security PYTHON=python
+
+      - name: Tests (mock translator, no network)
+        run: make test PYTHON=python
+
+      - name: Evaluation (layout suite, no regression allowed)
+        run: make eval PYTHON=python
