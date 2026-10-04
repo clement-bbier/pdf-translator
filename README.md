@@ -288,6 +288,11 @@ model. Only `make eval-real` says something about quality. Until the
 retrieval and verification workstreams are merged, the three configurations
 run identically.
 
+`python -m evaluation.run --limit N` runs only the first N dataset segments
+(smoke test). It is refused together with `--update-baseline`, because a
+partial dataset must not become the baseline. The translation memory is read
+from `data/tm/seed_zh_en.jsonl` by default.
+
 Latest published report: [docs/evaluation-report.md](docs/evaluation-report.md).
 Design notes: [metrics](docs/decisions/0002-translation-metrics-stdlib.md),
 [runs and tolerance](docs/decisions/0003-evaluation-runs-and-tolerance.md),
