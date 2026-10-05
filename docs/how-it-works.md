@@ -115,7 +115,7 @@ is `strip_code_fence` in `app/llm/answer.py`: it removes a single fence that
 wraps the whole answer and leaves anything else untouched for the JSON parser
 and the `json_valid` check to judge. It is applied in `LLMTranslator` and in
 `app/verification/structure.py`. See
-[decision 0013](decisions/0013-strip-markdown-fence-from-json-answer.md).
+[decision 0013](decisions/0013-structured-outputs-and-fence-fallback.md).
 
 ## 8. Verification
 

@@ -44,7 +44,13 @@ class GatewayProvider:
         }
         if request.temperature is not None:
             body["temperature"] = request.temperature
-        if request.response_format is not None:
+        # The JSON schema is not forwarded: structured-output support varies
+        # across OpenAI-compatible gateways, and the body stays as before; the
+        # translator strips a code fence and verification checks the JSON.
+        if (
+            request.response_format is not None
+            and request.response_format.get("type") != "json_schema"
+        ):
             body["response_format"] = request.response_format
 
         response = call_with_retry(lambda: self._post(body), label="gateway")

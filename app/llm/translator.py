@@ -20,6 +20,23 @@ if TYPE_CHECKING:
     from app.rag.context import RagContext
 
 
+def batch_response_format(keys: Sequence[str]) -> dict[str, Any]:
+    """JSON schema of a batch answer: exactly these keys, each a string.
+
+    Providers that support structured outputs constrain the model to it
+    (Claude Sonnet 5.5 otherwise sometimes appends a corrected second object).
+    """
+    return {
+        "type": "json_schema",
+        "schema": {
+            "type": "object",
+            "properties": {key: {"type": "string"} for key in keys},
+            "required": list(keys),
+            "additionalProperties": False,
+        },
+    }
+
+
 class LLMTranslator:
     """Implements the Translator protocol on top of an LLMProvider.
 
@@ -72,13 +89,16 @@ class LLMTranslator:
         self._term_providers = tuple(term_providers)
         self._verification_trace = VerificationTrace(trace_path) if trace_path else None
 
-    def _request(self, messages: list[dict]) -> LLMRequest:
+    def _request(
+        self, messages: list[dict], response_format: dict[str, Any] | None = None
+    ) -> LLMRequest:
         return LLMRequest(
             messages=messages,
             model=self.model,
             temperature=self._temperature,
             max_tokens=self._max_tokens,
             prompt_version=self.prompt_version,
+            response_format=response_format,
         )
 
     def _invalidate(self, request: LLMRequest) -> None:
@@ -123,7 +143,7 @@ class LLMTranslator:
                 payload_map, blocks, src, tgt, messages, sources, required
             )
 
-        request = self._request(messages)
+        request = self._request(messages, batch_response_format(list(payload_map)))
         request.context_sources = sources
         response = self._provider.complete(request)
 
@@ -162,7 +182,7 @@ class LLMTranslator:
                 messages = retry_messages(
                     base_messages, load_prompt(self.prompt_version, "retry_corrections"), findings
                 )
-            request = self._request(messages)
+            request = self._request(messages, batch_response_format(list(payload_map)))
             request.context_sources = sources
             response = self._provider.complete(request)
             return response.text, request_fingerprint(request)

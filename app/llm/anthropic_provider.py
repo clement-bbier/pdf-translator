@@ -83,6 +83,12 @@ class AnthropicProvider:
         }
         if system_parts:
             kwargs["system"] = "\n\n".join(system_parts)
+        if request.response_format and request.response_format.get("type") == "json_schema":
+            # Structured outputs: the answer is guaranteed to be one object
+            # matching the schema (no fence, no second "corrected" object).
+            kwargs["output_config"] = {
+                "format": {"type": "json_schema", "schema": request.response_format["schema"]}
+            }
         if request.temperature is not None and model_accepts_sampling(request.model):
             # The pinned SDK no longer exposes sampling parameters on
             # messages.create(), so temperature travels in the raw request body.
