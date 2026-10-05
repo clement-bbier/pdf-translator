@@ -224,7 +224,36 @@ configurations look better than they would with a real model. Only
 
 Full generated report: [docs/evaluation-report.md](docs/evaluation-report.md).
 
-<!-- RESULTS -->
+Real models, 30 public zh->en segments, 3 runs per cell (mean; standard
+deviations are in the full report), run on 2026-10-05 with `make eval-real`:
+
+| Model | Configuration | Glossary adherence | Check pass rate | chrF | Cost (30 segments) | Mean latency |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| claude-haiku-4-5-20251001, temperature 0 | no_rag | 0.653 | 1.000 | 65.6 | $0.020 | 1.56 s |
+| | glossary | **1.000** | 1.000 | 66.8 | $0.020 | 1.56 s |
+| | glossary_tm | **1.000** | 1.000 | 67.2 | $0.028 | 1.74 s |
+| claude-sonnet-5-5 | no_rag | 0.674 | 1.000 | 71.7 | $0.047 | 2.07 s |
+| | glossary | **1.000** | 1.000 | 72.0 | $0.050 | 2.04 s |
+| | glossary_tm | **1.000** | 1.000 | 72.4 | $0.057 | 2.00 s |
+
+What the numbers say:
+
+- The glossary is what moves terminology: adherence goes from about two
+  thirds to every required term, for both models, at no measurable cost.
+- chrF against the companies' own English versions rises a little with each
+  retrieval layer (+1.6 for Haiku, +0.7 for Sonnet from no_rag to
+  glossary_tm); for Haiku the translation memory adds about 55% input tokens
+  (+37% cost) for the last 0.4 point of that gain.
+- Every output passed the code checks (JSON, segment count, numbers, dates)
+  and no segment call failed, after structured outputs were added
+  ([decision 0013](docs/decisions/0013-structured-outputs-and-fence-fallback.md));
+  the first run without them failed 8 of 540 Sonnet calls.
+- Sonnet 5.5 is closer to the references (chrF about 72 vs 67) for about 2.5x
+  the cost; Haiku 4.5 stays the default because it accepts temperature 0 and
+  has a dated id ([decision 0012](docs/decisions/0012-claude-haiku-4-5-default-model.md)).
+- Limits: 30 short segments from four issuers, one reference translation per
+  segment, and chrF rewards wording close to that reference rather than
+  correctness as such.
 
 ## Data that persists and privacy
 

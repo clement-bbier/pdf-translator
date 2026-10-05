@@ -106,7 +106,7 @@ Phase 2 - four parallel workstreams (one /feature each, one worktree session eac
 Phase 3 - integration and proof
 
 - [x] Merge A-D (tests green at each merge), full suite, image build, app in the container, end-to-end translation of a public demo document
-- [ ] `make eval` on the real model if a key is configured, otherwise on the fake model, labelled as such
+- [x] `make eval` on the real model if a key is configured, otherwise on the fake model, labelled as such (real run 2026-10-05: Haiku 4.5 + Sonnet 5.5, docs/evaluation-report.md)
 - [x] README (what, mermaid architecture, 3-command start, evaluation results), docs/decisions/, docs/how-it-works.md
 - [ ] Final checks: no secret, no employer reference (search), CI green
 
