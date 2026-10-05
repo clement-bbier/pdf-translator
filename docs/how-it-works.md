@@ -83,7 +83,7 @@ Required terminology (use these target terms exactly):
 - **Cache** (`app/llm/caching.py`): the key is `request_fingerprint`
   (`app/llm/base.py`), a sha256 of model, prompt version, temperature,
   `max_tokens`, response format and messages. On a hit the model is not called.
-  This request's fingerprint starts with `187a21da`. Failures are never cached,
+  This request's fingerprint starts with `9dca64c4`. Failures are never cached,
   and a response the translator rejects is invalidated.
 - **Trace** (`app/llm/tracing.py`): one JSON line appended to
   `traces/llm-calls.jsonl` with `timestamp`, `input_id` (the fingerprint),
@@ -93,28 +93,32 @@ Required terminology (use these target terms exactly):
   the line; the input is represented by `input_id`. Nothing goes to the
   application logger.
 
-This call used 309 input tokens and 127 output tokens. At the configured prices
-(USD 1.00 and 5.00 per million tokens) that is about USD 0.00094.
+The request also carries a JSON schema of the batch (`batch_response_format`
+in `app/llm/translator.py`: exactly the key `"0"`, a string, nothing else).
+`AnthropicProvider` sends it as `output_config.format` (structured outputs), so
+the model is constrained to return one object of that shape.
 
-## 7. The raw answer, and the code fence
+This call used 450 input tokens (the schema adds to the prompt) and 117 output
+tokens. At the configured prices (USD 1.00 and 5.00 per million tokens) that is
+about USD 0.0010.
 
-The model answered:
+## 7. The raw answer, and why it is constrained
 
-````text
-```json
-{
-  "0": "Pursuant to Rule 13.43 of the Listing Rules of The Stock Exchange of Hong Kong Limited, HSBC Holdings plc announces that ..."
-}
+With the schema, the model answered exactly one object:
+
+```text
+{"0": "Pursuant to Rule 13.43 of the Listing Rules of The Stock Exchange of Hong Kong Limited, HSBC Holdings plc announces that ..."}
 ```
-````
 
-Despite the instruction, the JSON is wrapped in a Markdown fence. The fake
-provider never does this, so it was invisible in all tests and was found by the
-first real end-to-end run, where it made every batch fail `json_valid`. The fix
-is `strip_code_fence` in `app/llm/answer.py`: it removes a single fence that
-wraps the whole answer and leaves anything else untouched for the JSON parser
-and the `json_valid` check to judge. It is applied in `LLMTranslator` and in
-`app/verification/structure.py`. See
+Before the schema, the same request came back wrapped in a Markdown fence
+(a line with three backticks and `json`, the object, three backticks), despite
+the prompt's instruction. The fake provider never does this, so every test was
+green; the first real end-to-end run made every batch fail `json_valid`. The
+first real evaluation then showed a second habit: Claude Sonnet 5.5 sometimes
+wrote an object, a correction note, and a second object. Two layers handle
+this: structured outputs for the Anthropic provider, and `strip_code_fence`
+(`app/llm/answer.py`), which removes a single fence wrapping the whole answer
+for providers that do not get the schema (the gateway). See
 [decision 0013](decisions/0013-structured-outputs-and-fence-fallback.md).
 
 ## 8. Verification
