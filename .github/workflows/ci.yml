@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, tests, agentic config, secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: make lint PYTHON=python
+
+      - name: Validate agentic configuration
+        run: make validate PYTHON=python
+
+      - name: Secret scan
+        run: make security PYTHON=python
+
+      - name: Tests (mock translator, no network)
+        run: make test PYTHON=python
+
+  eval:
+    name: Evaluation (no regression allowed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Evaluation
+        run: make eval PYTHON=python
+        env:
+          APP_PROVIDER: fake
+
+      - name: Upload evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-reports
+          path: evaluation/reports/
+          if-no-files-found: warn
+
+  docker:
+    name: Container image build and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image (not pushed)
+        run: docker build -t pdf-translator:ci .
+
+      - name: Image size
+        run: docker image ls pdf-translator:ci
+
+      - name: Image runs as a non-root user
+        run: |
+          uid=$(docker run --rm --entrypoint id pdf-translator:ci -u)
+          echo "container uid: ${uid}"
+          test "${uid}" != "0"
+
+      - name: Smoke test
+        run: bash scripts/docker_smoke.sh pdf-translator:ci

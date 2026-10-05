@@ -16,7 +16,6 @@ if str(ROOT) not in sys.path:
 import pymupdf  # noqa: E402
 
 from app import config as app_config  # noqa: E402
-from app import fonts  # noqa: E402
 from app.scanned import SCAN_DPI, rebuild_scanned_page, render_page_image  # noqa: E402
 from tests import make_fixtures  # noqa: E402
 

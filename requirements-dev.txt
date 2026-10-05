@@ -1,0 +1,10 @@
+# Development-only tools; the application itself needs only requirements.txt.
+-r requirements.txt
+# Formatter + linter in one fast binary; used by `make lint` and the
+# PostToolUse hook that formats every Python file an agent writes.
+ruff==0.16.10
+# Checks pinned dependencies against known vulnerabilities (security-auditor,
+# `make audit`).
+pip-audit==2.10.1
+# Lock-file generator, dev tool only (used by `make lock`, never in the image).
+uv==0.11.32

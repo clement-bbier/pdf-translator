@@ -1,0 +1,41 @@
+name: Evaluation (real model)
+
+# Manual only: this workflow spends API credits.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eval-real:
+    name: Real-model evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      # Translation suite on the configured Claude model and the comparison
+      # models (config.yaml llm.model / llm.compare_models). The key is
+      # exposed to this step only and never printed.
+      - name: Evaluation with the real model
+        run: make eval-real PYTHON=python
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Upload evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-reports-real
+          path: evaluation/reports/
+          if-no-files-found: warn

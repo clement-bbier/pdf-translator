@@ -113,7 +113,9 @@ def _build_translations(document: DocumentData) -> dict[str, str]:
     return translations
 
 
-def _check_red_survives(result: pymupdf.Document, red_blocks, translations: dict[str, str]) -> list[str]:
+def _check_red_survives(
+    result: pymupdf.Document, red_blocks, translations: dict[str, str]
+) -> list[str]:
     """Verify the translated text of each red block is still written in red."""
     errors: list[str] = []
     for block in red_blocks:
@@ -338,8 +340,7 @@ def test_cjk_roundtrip_zero_loss() -> list[str]:
             lost = fonts.missing_chars(run, fontname)
             if lost:
                 errors.append(
-                    f"{lang}: {len(lost)} character(s) lost with font {fontname}: "
-                    f"{''.join(lost)}"
+                    f"{lang}: {len(lost)} character(s) lost with font {fontname}: {''.join(lost)}"
                 )
     return errors
 

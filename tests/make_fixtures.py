@@ -7,7 +7,6 @@ Run: python tests/make_fixtures.py [--force]
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import pymupdf
@@ -32,15 +31,8 @@ _FR_PARAGRAPH_2 = (
 )
 
 _ZH_TITLE = "合同终止条款"
-_ZH_BODY = (
-    "第一条 本合同自双方签署之日"
-    "起生效，双方应当严格遵守本"
-    "合同的各项约定。"
-)
-_ZH_BODY_2 = (
-    "第二条 任何一方不得擅自变更"
-    "或解除本合同。"
-)
+_ZH_BODY = "第一条 本合同自双方签署之日起生效，双方应当严格遵守本合同的各项约定。"
+_ZH_BODY_2 = "第二条 任何一方不得擅自变更或解除本合同。"
 
 
 def _table(page: pymupdf.Page, top: float) -> None:
@@ -86,8 +78,11 @@ def make_simple(path: Path) -> None:
         page.insert_text((60, 250 + index * 16), f"- {item}", fontname="helv", fontsize=10)
     _table(page, 320)
     page.insert_text(
-        (50, 300), "Résiliation immédiate en cas de non-paiement.",
-        fontname=_FR_FONT, fontsize=11, color=(0.8, 0, 0),
+        (50, 300),
+        "Résiliation immédiate en cas de non-paiement.",
+        fontname=_FR_FONT,
+        fontsize=11,
+        color=(0.8, 0, 0),
     )
     page.insert_text((50, 800), "Page 1/2", fontname="helv", fontsize=9)
     page.insert_text((450, 800), "REF-2024-0871", fontname="helv", fontsize=9)
@@ -113,7 +108,9 @@ def make_contract_zh(path: Path) -> None:
     page = doc.new_page()
     page.insert_text((50, 60), _ZH_TITLE, fontname="china-s", fontsize=18)
     page.insert_textbox(pymupdf.Rect(50, 90, 545, 180), _ZH_BODY, fontname="china-s", fontsize=11)
-    page.insert_textbox(pymupdf.Rect(50, 190, 545, 260), _ZH_BODY_2, fontname="china-s", fontsize=11)
+    page.insert_textbox(
+        pymupdf.Rect(50, 190, 545, 260), _ZH_BODY_2, fontname="china-s", fontsize=11
+    )
     page.insert_text((50, 800), "2024/03/12", fontname="helv", fontsize=9)
     doc.set_metadata({"title": _ZH_TITLE, "author": "法务部"})
     doc.save(path, garbage=3, deflate=True)
@@ -205,9 +202,7 @@ def make_dense_layout(path: Path) -> None:
     ]
     for index, text in enumerate(left_col):
         top = 95 + index * 26
-        page.insert_textbox(
-            pymupdf.Rect(40, top, 190, top + 16), text, fontname="helv", fontsize=8
-        )
+        page.insert_textbox(pymupdf.Rect(40, top, 190, top + 16), text, fontname="helv", fontsize=8)
     for index, text in enumerate(right_col):
         top = 95 + index * 26
         page.insert_textbox(

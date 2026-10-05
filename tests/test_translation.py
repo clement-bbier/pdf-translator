@@ -73,7 +73,7 @@ def test_mock_translator_batch_order() -> None:
     results = translator.translate_blocks(texts, "fr", "en")
 
     check(len(results) == len(texts), "batch result length mismatch")
-    for original, translated in zip(texts, results):
+    for original, translated in zip(texts, results, strict=True):
         check(original in translated, f"batch item lost: {original!r} not in {translated!r}")
 
 
@@ -197,11 +197,7 @@ def test_factory_unknown_provider() -> None:
 
 
 def _openai_response(payload: dict[str, str]) -> httpx.Response:
-    body = {
-        "choices": [
-            {"message": {"content": json.dumps(payload, ensure_ascii=False)}}
-        ]
-    }
+    body = {"choices": [{"message": {"content": json.dumps(payload, ensure_ascii=False)}}]}
     return httpx.Response(200, json=body)
 
 
@@ -409,7 +405,7 @@ def test_gateway_translator_uses_real_auth_session() -> None:
 
     auth.reset()
     auth._session = auth._Session(  # type: ignore[attr-defined]
-        access_token="session-token-xyz",
+        access_token="session-token-xyz",  # secret-scan: allow
         refresh_token="refresh-1",
         expires_at=time.monotonic() + 3600,
     )
@@ -435,7 +431,7 @@ def test_gateway_translator_uses_real_auth_session() -> None:
 
 def _patch_client(translator: GatewayTranslator, transport: httpx.MockTransport) -> None:
     """Monkeypatch httpx.Client used inside the translator to route through transport."""
-    import app.translator as translator_module
+    import app.llm.gateway_provider as translator_module
 
     original_client = httpx.Client
 
@@ -448,7 +444,7 @@ def _patch_client(translator: GatewayTranslator, transport: httpx.MockTransport)
 
 def _patch_sleep() -> None:
     """Avoid real waiting during retry tests."""
-    import app.translator as translator_module
+    import app.llm.retry as translator_module
 
     translator_module.time.sleep = lambda seconds: None  # type: ignore[attr-defined]
 
@@ -486,7 +482,8 @@ def main() -> int:
         test_gateway_translator_uses_real_auth_session,
     ]
 
-    import app.translator as translator_module
+    import app.llm.gateway_provider as translator_module
+    import app.llm.retry as retry_module
 
     original_get_token = auth.get_token
     original_client = httpx.Client
@@ -501,7 +498,7 @@ def main() -> int:
         finally:
             auth.get_token = original_get_token  # type: ignore[attr-defined]
             translator_module.httpx.Client = original_client  # type: ignore[attr-defined]
-            translator_module.time.sleep = original_sleep  # type: ignore[attr-defined]
+            retry_module.time.sleep = original_sleep  # type: ignore[attr-defined]
         status = "OK" if len(FAILURES) == failures_before else "FAIL"
         print(f"[{status}] {test.__name__}")
 

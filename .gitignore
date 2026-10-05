@@ -1,14 +1,30 @@
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 __pycache__/
 *.pyc
+.mypy_cache/
+.ruff_cache/
 output/*
 tmp/*
 !output/.gitkeep
 !tmp/.gitkeep
-.claude/settings.local.json
 *.log
 
 # local backup of the pre-release git history (never commit)
 .git.backup/
+
+# Agentic development: definitions (.claude/agents, skills, hooks, schemas,
+# settings.json) are versioned; run-time state is not.
+.claude/handoffs/
+.claude/worktrees/
+.claude/settings.local.json
+*.local.txt
+
+# LLM call traces (local only, contain model output)
+traces/
+
+# Evaluation run outputs (the baseline and dataset are versioned)
+evaluation/reports/

@@ -1,4 +1,4 @@
-provider: mock          # mock | gateway
+provider: mock          # mock | fake | anthropic | gateway
 model: gemini-2.5-flash # default selection; must be one of `models` below
 
 # Models offered in the UI select (provider: gateway only). Pick per job to
@@ -21,11 +21,37 @@ models:
 
 batch_size: 20
 
+# Pinned LLM call parameters (provider: fake | anthropic | gateway). The gateway
+# provider uses the top-level `model` above instead of `llm.model`.
+# temperature: null means "not sent" (Sonnet/Opus 5.x reject sampling parameters).
+llm:
+  model: claude-haiku-4-5-20251001
+  temperature: 0
+  max_tokens: 4096
+  timeout: 60
+  prompt_version: v1    # prompts/<version>/
+  compare_models:       # evaluation only
+    - {model: claude-sonnet-5-5, temperature: null}
+  prices:               # USD per million tokens, used for cost estimates in traces
+    claude-haiku-4-5-20251001: {input: 1.00, output: 5.00}
+    claude-sonnet-5-5: {input: 2.00, output: 10.00}
+
+# One JSONL line per LLM call: ids, counters, cost and the model output (translated
+# text). Local only, gitignored; input messages are not stored.
+tracing: {enabled: true, path: traces/llm-calls.jsonl}
+
+# Request-level LLM response cache.
+cache: {enabled: true, path: tmp/llm-cache.json}
+
 # Translate scanned pages (no extractable text) by sending an image of the page
 # to the model. Requires a multimodal model on the gateway side, and costs far
 # more tokens per page than the text path, so it is off by default. When off,
 # scanned pages are copied as-is and listed on a warning cover page.
 multimodal_enabled: false
+
+# Code checks on every LLM batch (JSON, segment count, numbers, dates, glossary):
+# one retry with the errors, then flag for human review. MockTranslator is never verified.
+verification: {enabled: true, max_retries: 1}
 
 max_files: 10
 max_file_mb: 20
@@ -33,3 +59,14 @@ font_min_scale: 0.6
 languages:
   source: [zh, ja, ko, en, fr]
   target: [fr, en]
+
+# Retrieval-augmented translation (validated by app/rag/settings.py).
+rag:
+  glossary: true                                 # inject matching glossary terms into the prompt
+  glossary_path: data/glossary/finance_zh.csv    # Traditional Chinese terms (HK filings); Simplified text does not match
+  translation_memory: false                      # off by default: inject similar validated translations
+  tm_path: data/tm/seed_zh_en.jsonl              # translation memory records (JSONL)
+  tm_top_k: 3                                    # max examples injected per batch (1..20)
+  tm_min_score: 0.3                              # minimum cosine similarity to keep an example (-1..1)
+  embedder: hashing                              # hashing (local, no network) | gateway (embeddings endpoint)
+  embedding_model: text-embedding-3-small        # model used when embedder is gateway

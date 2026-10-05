@@ -9,6 +9,8 @@ import threading
 import time
 import uuid
 import zipfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -16,7 +18,7 @@ from typing import Any
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from app import auth
+from app import access, auth
 from app import config as app_config
 from app.pipeline import OUTPUT_DIR, JobResult, _validate_file, run_job
 
@@ -26,7 +28,16 @@ TMP_DIR = Path(__file__).resolve().parent.parent / "tmp"
 
 JOB_TTL_SECONDS = 30 * 60
 
-app = FastAPI(title="PDF Translator")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Log once whether the access guard is active."""
+    access.log_access_mode(logger)
+    yield
+
+
+app = FastAPI(title="PDF Translator", lifespan=_lifespan)
+app.add_middleware(access.AccessGuardMiddleware)
 
 
 @app.exception_handler(Exception)
@@ -71,9 +82,7 @@ def _purge_expired_jobs() -> None:
     now = time.monotonic()
     with _jobs_lock:
         expired = [
-            job_id
-            for job_id, state in _jobs.items()
-            if now - state.created_at > JOB_TTL_SECONDS
+            job_id for job_id, state in _jobs.items() if now - state.created_at > JOB_TTL_SECONDS
         ]
         for job_id in expired:
             del _jobs[job_id]
@@ -205,6 +214,7 @@ def _render_index(config: dict[str, Any]) -> str:
   }}
   #progress-message {{ font-size: 0.85rem; color: #444; margin-top: 6px; }}
   #warnings {{ margin-top: 12px; font-size: 0.85rem; color: #92400e; }}
+  #review {{ margin-top: 12px; font-size: 0.85rem; color: #92400e; }}
   #error-message {{
     display: none;
     margin-top: 16px;
@@ -287,6 +297,7 @@ def _render_index(config: dict[str, Any]) -> str:
     <div id="progress-bar-bg"><div id="progress-bar"></div></div>
     <div id="progress-message"></div>
     <div id="warnings"></div>
+    <div id="review"></div>
   </div>
 
   <div id="download-link"><a href="#" id="download-href">Download result</a></div>
@@ -304,6 +315,7 @@ const progressWrap = document.getElementById('progress-wrap');
 const progressBar = document.getElementById('progress-bar');
 const progressMessage = document.getElementById('progress-message');
 const warningsBox = document.getElementById('warnings');
+const reviewBox = document.getElementById('review');
 const downloadLink = document.getElementById('download-link');
 const downloadHref = document.getElementById('download-href');
 
@@ -446,6 +458,10 @@ async function pollStatus(jobId) {{
       if (data.warnings && data.warnings.length) {{
         warningsBox.textContent = 'Warnings: ' + data.warnings.join('; ');
       }}
+      if (data.review_count > 0) {{
+        reviewBox.textContent = data.review_count
+          + ' segment(s) need human review (see review.json in the download).';
+      }}
       downloadHref.href = '/jobs/' + jobId + '/download';
       downloadLink.style.display = 'block';
     }} else if (data.status === 'error') {{
@@ -463,6 +479,7 @@ form.addEventListener('submit', async e => {{
   hideError();
   downloadLink.style.display = 'none';
   warningsBox.textContent = '';
+  reviewBox.textContent = '';
 
   if (authRequired && !authenticated) {{
     showError("Sign in to the gateway before translating.");
@@ -514,6 +531,12 @@ def index() -> str:
     """Serve the single-page UI."""
     config = app_config.load_config()
     return _render_index(config)
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, str]:
+    """Liveness probe: no auth, no config load, no I/O."""
+    return {"status": "ok"}
 
 
 # --------------------------------------------------------------------------- #
@@ -584,9 +607,7 @@ def _execute_job(job_id: str, files: list[Path], src: str, tgt: str, config: dic
                 _jobs[job_id].message = "done"
                 _jobs[job_id].result = result
         duration = time.monotonic() - started
-        logger.info(
-            "job %s done: %d file(s), %.1fs", job_id, len(files), duration
-        )
+        logger.info("job %s done: %d file(s), %.1fs", job_id, len(files), duration)
     except Exception as error:  # noqa: BLE001 - job failure must not crash the worker
         with _jobs_lock:
             if job_id in _jobs:
@@ -617,9 +638,7 @@ async def create_job(
     if not files:
         raise HTTPException(status_code=400, detail="No file provided.")
     if len(files) > max_files:
-        raise HTTPException(
-            status_code=400, detail=f"Too many files ({len(files)} > {max_files})."
-        )
+        raise HTTPException(status_code=400, detail=f"Too many files ({len(files)} > {max_files}).")
     if src not in languages.get("source", []):
         raise HTTPException(status_code=400, detail="Invalid source language.")
     if tgt not in languages.get("target", []):
@@ -684,6 +703,7 @@ def get_job_status(job_id: str) -> dict[str, Any]:
         }
         if state.status == "done" and state.result is not None:
             payload["warnings"] = state.result.warnings
+            payload["review_count"] = state.result.review_count
             payload["stats"] = state.result.stats.summary()
         elif state.status == "error":
             payload["error"] = state.error
@@ -715,6 +735,8 @@ def download_job(job_id: str) -> StreamingResponse:
             output_path = Path(file_result.output_path)
             if output_path.is_file():
                 archive.write(output_path, arcname=output_path.name)
+        if result.review_path is not None and Path(result.review_path).is_file():
+            archive.write(result.review_path, arcname="review.json")
     buffer.seek(0)
 
     with _jobs_lock:
